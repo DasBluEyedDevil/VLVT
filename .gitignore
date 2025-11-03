@@ -1,0 +1,38 @@
+# Backend
+backend/*/node_modules/
+backend/*/dist/
+backend/*/.env
+backend/*/package-lock.json
+
+# Frontend
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework
+frontend/ios/Flutter/Flutter.podspec
+frontend/ios/.generated/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/debug
+frontend/android/app/profile
+frontend/android/app/release
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Environment
+.env

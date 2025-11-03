@@ -1,0 +1,45 @@
+name: nobsdating
+description: NoBS Dating - A straightforward dating app
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI Components
+  cupertino_icons: ^1.0.2
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # HTTP Client
+  http: ^1.1.0
+  
+  # Authentication
+  sign_in_with_apple: ^5.0.0
+  google_sign_in: ^6.1.5
+  
+  # RevenueCat SDK for subscriptions
+  purchases_flutter: ^6.0.0
+  
+  # Secure storage for tokens
+  flutter_secure_storage: ^9.0.0
+  
+  # JSON serialization
+  json_annotation: ^4.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
+
+flutter:
+  uses-material-design: true

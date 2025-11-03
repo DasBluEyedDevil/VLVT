@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: nobsdating
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      JWT_SECRET: your-secret-key-change-in-production
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  profile-service:
+    build:
+      context: ./backend/profile-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  chat-service:
+    build:
+      context: ./backend/chat-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
