@@ -191,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                             if (profile?.interests != null && profile!.interests!.isNotEmpty)
                               _buildInfoRow('Interests', profile.interests!.join(', ')),
-                            if (profile == null || (profile.age == null && profile.bio == null && (profile.interests == null || profile.interests!.isEmpty)))
+                            if (!_hasProfileInfo(profile))
                               const Text(
                                 'No profile information available',
                                 style: TextStyle(color: Colors.grey),
@@ -221,6 +221,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  bool _hasProfileInfo(Profile? profile) {
+    if (profile == null) return false;
+    return profile.age != null || 
+           profile.bio != null || 
+           (profile.interests != null && profile.interests!.isNotEmpty);
   }
 
   Widget _buildInfoRow(String label, String value) {

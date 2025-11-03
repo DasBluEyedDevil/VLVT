@@ -22,8 +22,9 @@ class ProfileApiService extends ChangeNotifier {
 
   Future<Profile> getProfile(String userId) async {
     try {
+      final encodedUserId = Uri.encodeComponent(userId);
       final response = await http.get(
-        Uri.parse('$baseUrl/profile/$userId'),
+        Uri.parse('$baseUrl/profile/$encodedUserId'),
         headers: _getAuthHeaders(),
       );
 
@@ -71,8 +72,9 @@ class ProfileApiService extends ChangeNotifier {
 
   Future<Profile> updateProfile(Profile profile) async {
     try {
+      final encodedUserId = Uri.encodeComponent(profile.userId);
       final response = await http.put(
-        Uri.parse('$baseUrl/profile/${profile.userId}'),
+        Uri.parse('$baseUrl/profile/$encodedUserId'),
         headers: _getAuthHeaders(),
         body: json.encode(profile.toJson()),
       );

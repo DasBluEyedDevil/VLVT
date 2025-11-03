@@ -28,4 +28,9 @@ class Match {
       'createdAt': createdAt.toIso8601String(),
     };
   }
+
+  /// Returns the other user's ID given the current user's ID
+  String getOtherUserId(String currentUserId) {
+    return userId1 == currentUserId ? userId2 : userId1;
+  }
 }

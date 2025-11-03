@@ -23,8 +23,9 @@ class ChatApiService extends ChangeNotifier {
 
   Future<List<Match>> getMatches(String userId) async {
     try {
+      final encodedUserId = Uri.encodeComponent(userId);
       final response = await http.get(
-        Uri.parse('$baseUrl/matches/$userId'),
+        Uri.parse('$baseUrl/matches/$encodedUserId'),
         headers: _getAuthHeaders(),
       );
 
@@ -47,8 +48,9 @@ class ChatApiService extends ChangeNotifier {
 
   Future<List<Message>> getMessages(String matchId) async {
     try {
+      final encodedMatchId = Uri.encodeComponent(matchId);
       final response = await http.get(
-        Uri.parse('$baseUrl/messages/$matchId'),
+        Uri.parse('$baseUrl/messages/$encodedMatchId'),
         headers: _getAuthHeaders(),
       );
 

@@ -105,7 +105,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             itemCount: matches.length,
             itemBuilder: (context, index) {
               final match = matches[index];
-              final otherUserId = match.userId1 == userId ? match.userId2 : match.userId1;
+              final otherUserId = match.getOtherUserId(userId);
 
               return FutureBuilder<Profile>(
                 future: profileService.getProfile(otherUserId),
