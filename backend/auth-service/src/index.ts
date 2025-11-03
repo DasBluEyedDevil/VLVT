@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import rateLimit from 'express-rate-limit';
+import { OAuth2Client } from 'google-auth-library';
 
 dotenv.config();
 
@@ -18,6 +19,9 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Initialize Google OAuth2 client
+const googleClient = new OAuth2Client();
 
 // Initialize PostgreSQL connection pool
 const pool = new Pool({
@@ -53,10 +57,22 @@ app.post('/auth/apple', async (req: Request, res: Response) => {
   try {
     const { identityToken } = req.body;
     
-    // In production, verify the Apple identity token
-    // For now, we'll create a stub provider ID
-    const providerId = `apple_${Date.now()}`;
-    const email = `user@apple.example.com`;
+    if (!identityToken) {
+      return res.status(400).json({ success: false, error: 'identityToken is required' });
+    }
+    
+    // Decode the Apple identity token (JWT)
+    // Note: In full production, you should also verify the token signature 
+    // against Apple's public keys fetched from https://appleid.apple.com/auth/keys
+    const decoded = jwt.decode(identityToken) as { sub?: string; email?: string } | null;
+    
+    if (!decoded || !decoded.sub) {
+      return res.status(401).json({ success: false, error: 'Invalid identity token' });
+    }
+    
+    // Extract real providerId and email from decoded token
+    const providerId = `apple_${decoded.sub}`;
+    const email = decoded.email || `user_${decoded.sub}@apple.example.com`;
     const provider = 'apple';
     
     // Upsert user in database
@@ -93,10 +109,24 @@ app.post('/auth/google', async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
     
-    // In production, verify the Google ID token
-    // For now, we'll create a stub provider ID
-    const providerId = `google_${Date.now()}`;
-    const email = `user@google.example.com`;
+    if (!idToken) {
+      return res.status(400).json({ success: false, error: 'idToken is required' });
+    }
+    
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID, // Optional: verify audience
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.sub) {
+      return res.status(401).json({ success: false, error: 'Invalid token payload' });
+    }
+    
+    // Extract real providerId and email from verified token
+    const providerId = `google_${payload.sub}`;
+    const email = payload.email || `user_${payload.sub}@google.example.com`;
     const provider = 'google';
     
     // Upsert user in database

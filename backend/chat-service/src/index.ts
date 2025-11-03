@@ -70,6 +70,31 @@ app.post('/matches', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Both userIds are required' });
     }
     
+    // Check for existing match in both directions
+    const existingMatch = await pool.query(
+      `SELECT id, user_id_1, user_id_2, created_at 
+       FROM matches 
+       WHERE (user_id_1 = $1 AND user_id_2 = $2) 
+          OR (user_id_1 = $2 AND user_id_2 = $1)`,
+      [userId1, userId2]
+    );
+    
+    // If match already exists, return the existing match
+    if (existingMatch.rows.length > 0) {
+      const match = existingMatch.rows[0];
+      return res.json({ 
+        success: true, 
+        match: {
+          id: match.id,
+          userId1: match.user_id_1,
+          userId2: match.user_id_2,
+          createdAt: match.created_at
+        },
+        alreadyExists: true
+      });
+    }
+    
+    // Create new match only if it doesn't exist
     const matchId = `match_${Date.now()}`;
     
     const result = await pool.query(
