@@ -68,11 +68,18 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       }
       
       // Create match
-      await chatService.createMatch(currentUserId, profile.userId);
+      final result = await chatService.createMatch(currentUserId, profile.userId);
+      final alreadyExists = result['alreadyExists'] as bool;
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Matched with ${profile.name ?? "user"}!')),
+          SnackBar(
+            content: Text(
+              alreadyExists 
+                ? 'You already matched with ${profile.name ?? "user"}!'
+                : 'Matched with ${profile.name ?? "user"}!'
+            ),
+          ),
         );
       }
     } catch (e) {

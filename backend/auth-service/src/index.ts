@@ -69,8 +69,11 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
     }
     
     // Decode the Apple identity token (JWT)
-    // Note: In full production, you should also verify the token signature 
+    // SECURITY WARNING: In production, you MUST verify the token signature 
     // against Apple's public keys fetched from https://appleid.apple.com/auth/keys
+    // to prevent token forgery attacks. This current implementation only decodes
+    // the token without verification and should not be used in production.
+    // Consider using a library like 'apple-signin-auth' for full verification.
     const decoded = jwt.decode(identityToken) as { sub?: string; email?: string } | null;
     
     if (!decoded || !decoded.sub) {

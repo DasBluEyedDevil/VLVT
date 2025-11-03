@@ -5,6 +5,7 @@ import '../services/chat_api_service.dart';
 import '../services/profile_api_service.dart';
 import '../models/match.dart';
 import '../models/profile.dart';
+import '../utils/date_utils.dart';
 import 'chat_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -129,7 +130,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                     subtitle: Text(profile?.bio ?? 'No bio'),
                     trailing: Text(
-                      _formatTimestamp(match.createdAt),
+                      formatTimestamp(match.createdAt),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -153,18 +154,5 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
-  }
 }

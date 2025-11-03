@@ -6,6 +6,7 @@ import '../services/profile_api_service.dart';
 import '../models/match.dart';
 import '../models/message.dart';
 import '../models/profile.dart';
+import '../utils/date_utils.dart';
 
 class ChatScreen extends StatefulWidget {
   final Match match;
@@ -261,7 +262,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _formatTimestamp(message.timestamp),
+                  formatTimestamp(message.timestamp),
                   style: TextStyle(
                     fontSize: 11,
                     color: isCurrentUser ? Colors.white70 : Colors.black54,
@@ -332,18 +333,5 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
-  }
 }

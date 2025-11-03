@@ -71,7 +71,7 @@ class ChatApiService extends ChangeNotifier {
     }
   }
 
-  Future<Match?> createMatch(String userId1, String userId2) async {
+  Future<Map<String, dynamic>> createMatch(String userId1, String userId2) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/matches'),
@@ -85,7 +85,10 @@ class ChatApiService extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && data['match'] != null) {
-          return Match.fromJson(data['match']);
+          return {
+            'match': Match.fromJson(data['match']),
+            'alreadyExists': data['alreadyExists'] == true,
+          };
         } else {
           throw Exception('Invalid response format');
         }
