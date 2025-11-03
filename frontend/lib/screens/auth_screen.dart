@@ -95,11 +95,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 if (Platform.isIOS) const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _signInWithGoogle,
-                  icon: Image.network(
-                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                    height: 24,
-                    width: 24,
-                  ),
+                  icon: const Icon(Icons.g_mobiledata, size: 32),
                   label: const Text('Sign in with Google'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,

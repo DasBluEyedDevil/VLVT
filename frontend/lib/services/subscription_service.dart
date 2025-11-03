@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../config/app_config.dart';
 
 class SubscriptionService extends ChangeNotifier {
   bool _hasPremiumAccess = false;
@@ -14,11 +15,13 @@ class SubscriptionService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
       
-      // Initialize RevenueCat with your API keys
-      // For iOS: use your iOS API key
-      // For Android: use your Android API key
+      // Initialize RevenueCat with your API key from config
+      // Make sure to set different keys for iOS and Android in production
+      if (AppConfig.revenueCatApiKey == 'YOUR_REVENUECAT_API_KEY') {
+        debugPrint('WARNING: Using default RevenueCat API key. Please configure a real key.');
+      }
       final configuration = PurchasesConfiguration(
-        'YOUR_REVENUECAT_API_KEY', // Replace with actual key
+        AppConfig.revenueCatApiKey,
       );
       
       await Purchases.configure(configuration);

@@ -4,9 +4,9 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: nobsdating
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-nobsdating}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env file}
     ports:
       - "5432:5432"
     volumes:
@@ -23,11 +23,11 @@ services:
       context: ./backend/auth-service
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "${AUTH_PORT:-3001}:${AUTH_PORT:-3001}"
     environment:
-      PORT: 3001
-      JWT_SECRET: your-secret-key-change-in-production
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+      PORT: ${AUTH_PORT:-3001}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env file}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nobsdating}
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,10 +37,10 @@ services:
       context: ./backend/profile-service
       dockerfile: Dockerfile
     ports:
-      - "3002:3002"
+      - "${PROFILE_PORT:-3002}:${PROFILE_PORT:-3002}"
     environment:
-      PORT: 3002
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+      PORT: ${PROFILE_PORT:-3002}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nobsdating}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,10 +50,10 @@ services:
       context: ./backend/chat-service
       dockerfile: Dockerfile
     ports:
-      - "3003:3003"
+      - "${CHAT_PORT:-3003}:${CHAT_PORT:-3003}"
     environment:
-      PORT: 3003
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/nobsdating
+      PORT: ${CHAT_PORT:-3003}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nobsdating}
     depends_on:
       postgres:
         condition: service_healthy

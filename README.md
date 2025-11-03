@@ -39,13 +39,20 @@ A straightforward dating app with no BS. Built with Flutter for the frontend and
 - Xcode (for iOS development)
 - Android Studio (for Android development)
 
-## Setup Instructions
+## Quick Start
 
 ### Backend Setup
 
-1. **Start all services with Docker Compose:**
+1. **Copy environment file and configure secrets:**
    ```bash
-   docker-compose up --build
+   cp .env.example .env
+   # Edit .env and set POSTGRES_PASSWORD and JWT_SECRET
+   ```
+
+2. **Start all services with Docker Compose:**
+   ```bash
+   ./start-backend.sh
+   # or: docker-compose up --build
    ```
 
    This will start:
@@ -53,17 +60,6 @@ A straightforward dating app with no BS. Built with Flutter for the frontend and
    - Auth service (port 3001)
    - Profile service (port 3002)
    - Chat service (port 3003)
-
-2. **Run services individually (for development):**
-
-   For each service (auth-service, profile-service, chat-service):
-   ```bash
-   cd backend/<service-name>
-   npm install
-   cp .env.example .env
-   # Edit .env with your configuration
-   npm run dev
-   ```
 
 ### Frontend Setup
 
@@ -73,32 +69,12 @@ A straightforward dating app with no BS. Built with Flutter for the frontend and
    flutter pub get
    ```
 
-2. **Configure backend URL:**
-   Edit `lib/services/auth_service.dart` and update the `baseUrl` to point to your backend:
-   ```dart
-   final String baseUrl = 'http://YOUR_BACKEND_URL:3001';
-   ```
-
-3. **Configure RevenueCat:**
-   - Sign up at [RevenueCat](https://www.revenuecat.com/)
-   - Create a project and get your API keys
-   - Edit `lib/services/subscription_service.dart` and replace `YOUR_REVENUECAT_API_KEY`
-
-4. **Configure Sign in with Apple (iOS only):**
-   - Add Sign in with Apple capability in Xcode
-   - Configure your app's Bundle ID in Apple Developer Portal
-
-5. **Configure Google Sign In:**
-   - Create a project in [Google Cloud Console](https://console.cloud.google.com/)
-   - Enable Google Sign-In API
-   - Add OAuth 2.0 credentials
-   - For iOS: Add your Bundle ID
-   - For Android: Add your SHA-1 certificate fingerprint
-
-6. **Run the app:**
+2. **Run the app:**
    ```bash
-   flutter run
+   flutter run --dart-define=REVENUECAT_API_KEY=YOUR_KEY
    ```
+
+For detailed setup instructions including RevenueCat configuration, Apple/Google Sign In setup, and production deployment, see **[SETUP.md](SETUP.md)**.
 
 ## API Endpoints
 
@@ -181,10 +157,19 @@ Create `.env` files based on `.env.example` in each service directory:
 
 ## Security Notes
 
-1. **Change JWT_SECRET**: The default JWT secret is for development only. Use a strong, random secret in production.
-2. **Apple/Google Token Verification**: Current implementation is stubbed. In production, verify Apple identity tokens and Google ID tokens server-side.
-3. **HTTPS**: Use HTTPS in production for all API endpoints.
-4. **Database**: Set strong passwords for PostgreSQL in production.
+⚠️ **IMPORTANT**: This implementation uses stub authentication for demonstration purposes. Before deploying to production:
+
+1. **Environment Variables**: Never commit `.env` files. The auth service will now exit if `JWT_SECRET` is not set.
+2. **Generate Strong Secrets**: 
+   ```bash
+   openssl rand -base64 64  # For JWT_SECRET
+   ```
+3. **Token Verification**: Implement proper Apple identity token and Google ID token verification server-side.
+4. **Database Security**: Use strong passwords and enable SSL connections for PostgreSQL.
+5. **HTTPS**: Use HTTPS for all API endpoints in production.
+6. **API Keys**: Store RevenueCat API keys securely and use different keys for development/production.
+
+See **[SETUP.md](SETUP.md)** for complete security checklist.
 
 ## Subscription Flow
 

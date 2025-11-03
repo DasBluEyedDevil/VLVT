@@ -4,6 +4,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
@@ -19,8 +20,11 @@ class AuthService extends ChangeNotifier {
   String? get userId => _userId;
   String? get token => _token;
   
-  // Base URL for backend - change this to your backend URL
-  final String baseUrl = 'http://localhost:3001';
+  // Base URL for backend - uses AppConfig
+  // For iOS simulator: http://localhost:3001
+  // For Android emulator: http://10.0.2.2:3001
+  // For real device: http://YOUR_COMPUTER_IP:3001
+  String get baseUrl => AppConfig.authServiceUrl;
   
   AuthService() {
     _loadToken();
