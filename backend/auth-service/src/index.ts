@@ -37,6 +37,13 @@ pool.on('error', (err) => {
   console.error('PostgreSQL connection error:', err);
 });
 
+// Rate limiter for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 auth attempts per windowMs
+  message: 'Too many authentication attempts, please try again later'
+});
+
 // Rate limiter for /auth/verify endpoint
 const verifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -53,7 +60,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Sign in with Apple endpoint
-app.post('/auth/apple', async (req: Request, res: Response) => {
+app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
   try {
     const { identityToken } = req.body;
     
@@ -105,7 +112,7 @@ app.post('/auth/apple', async (req: Request, res: Response) => {
 });
 
 // Sign in with Google endpoint
-app.post('/auth/google', async (req: Request, res: Response) => {
+app.post('/auth/google', authLimiter, async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
     

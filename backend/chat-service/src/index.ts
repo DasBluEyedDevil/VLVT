@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -12,6 +13,13 @@ if (!process.env.DATABASE_URL) {
   console.error('ERROR: DATABASE_URL environment variable is required');
   process.exit(1);
 }
+
+// Rate limiter for match creation endpoint
+const matchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // limit each IP to 50 match creation attempts per windowMs
+  message: 'Too many match requests, please try again later'
+});
 
 app.use(cors());
 app.use(express.json());
@@ -62,7 +70,7 @@ app.get('/matches/:userId', async (req: Request, res: Response) => {
 });
 
 // Create a match
-app.post('/matches', async (req: Request, res: Response) => {
+app.post('/matches', matchLimiter, async (req: Request, res: Response) => {
   try {
     const { userId1, userId2 } = req.body;
     
