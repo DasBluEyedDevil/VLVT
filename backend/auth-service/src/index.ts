@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import rateLimit from 'express-rate-limit';
 import { OAuth2Client } from 'google-auth-library';
+import migrateRouter from './migrate-endpoint';
 
 dotenv.config();
 
@@ -53,6 +54,9 @@ const verifyLimiter = rateLimit({
 
 app.use(cors());
 app.use(express.json());
+
+// TEMPORARY: Migration endpoint (remove after migrations complete)
+app.use('/admin', migrateRouter);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
