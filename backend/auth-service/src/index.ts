@@ -184,6 +184,50 @@ app.post('/auth/verify', verifyLimiter, (req: Request, res: Response) => {
   }
 });
 
+// Test login endpoint (ONLY FOR DEVELOPMENT/TESTING)
+// This bypasses OAuth and allows direct login with any user ID
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/auth/test-login', async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ success: false, error: 'userId is required' });
+      }
+
+      // Verify the user exists in the database
+      const result = await pool.query(
+        'SELECT * FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      const user = result.rows[0];
+      const token = jwt.sign(
+        { userId: user.id, provider: user.provider, email: user.email },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        success: true,
+        token,
+        userId: user.id,
+        provider: user.provider,
+        email: user.email
+      });
+    } catch (error) {
+      console.error('Test login error:', error);
+      res.status(500).json({ success: false, error: 'Test login failed' });
+    }
+  });
+
+  console.log('⚠️  Test login endpoint enabled (NOT FOR PRODUCTION)');
+}
+
 app.listen(PORT, () => {
   console.log(`Auth service running on port ${PORT}`);
 });

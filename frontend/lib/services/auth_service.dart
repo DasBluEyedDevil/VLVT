@@ -115,10 +115,23 @@ class AuthService extends ChangeNotifier {
     await _storage.delete(key: 'auth_token');
     await _storage.delete(key: 'user_id');
     await _googleSignIn.signOut();
-    
+
     _token = null;
     _userId = null;
     _isAuthenticated = false;
+    notifyListeners();
+  }
+
+  /// Set auth data directly (used for test login)
+  /// This bypasses OAuth and sets authentication state manually
+  Future<void> setAuthData({required String token, required String userId}) async {
+    _token = token;
+    _userId = userId;
+
+    await _storage.write(key: 'auth_token', value: token);
+    await _storage.write(key: 'user_id', value: userId);
+
+    _isAuthenticated = true;
     notifyListeners();
   }
 }

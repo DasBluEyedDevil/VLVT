@@ -1,0 +1,17 @@
+{
+  "name": "nobsdating-seed-data",
+  "version": "1.0.0",
+  "description": "Test database seeding scripts for NoBS Dating",
+  "main": "seed.js",
+  "scripts": {
+    "seed": "node seed.js",
+    "seed:clean": "node seed.js --clean",
+    "clean": "node seed.js --clean-only"
+  },
+  "keywords": ["database", "seeding", "testing"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
+}

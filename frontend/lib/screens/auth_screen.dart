@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../services/auth_service.dart';
 import '../constants/spacing.dart';
 import '../constants/text_styles.dart';
 import '../utils/error_handler.dart';
+import 'test_login_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -290,6 +292,27 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           ),
                         ),
                       ),
+                      // Test users button (development only)
+                      if (kDebugMode) ...[
+                        Spacing.verticalXl,
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TestLoginScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.bug_report),
+                          label: const Text('Test Users (Dev Only)'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white, width: 2),
+                            padding: Spacing.paddingMd,
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
