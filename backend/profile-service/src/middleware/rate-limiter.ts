@@ -1,28 +1,14 @@
 import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import { createClient } from 'redis';
 import logger from '../utils/logger';
 
-// Optional Redis client (falls back to memory if not configured)
-let redisClient: ReturnType<typeof createClient> | undefined;
-
+// Note: Using memory store for rate limiting
+// For production with multiple instances, configure Redis via REDIS_URL
+// and install rate-limit-redis package
 if (process.env.REDIS_URL) {
-  redisClient = createClient({ url: process.env.REDIS_URL });
-
-  redisClient.on('error', (err) => {
-    logger.error('Redis client error', { error: err.message });
-  });
-
-  redisClient.on('connect', () => {
-    logger.info('Redis client connected for rate limiting');
-  });
-
-  redisClient.connect().catch((err) => {
-    logger.warn('Failed to connect to Redis, falling back to memory store', { error: err.message });
-    redisClient = undefined;
-  });
+  logger.warn('REDIS_URL is set but Redis integration is disabled. Using memory store for rate limiting.');
+  logger.warn('To enable Redis: npm install rate-limit-redis redis and update rate-limiter.ts');
 } else {
-  logger.info('REDIS_URL not set, using memory store for rate limiting (not suitable for production)');
+  logger.info('Using memory store for rate limiting (sufficient for single-instance deployment)');
 }
 
 // General API rate limiter (100 requests per 15 minutes per IP)
@@ -30,12 +16,8 @@ export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: 'Too many requests from this IP, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:profile:general:',
-  }) : undefined,
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,
@@ -49,51 +31,42 @@ export const generalLimiter = rateLimit({
   }
 });
 
-// Profile creation rate limiter (5 per day per user)
-// Note: This is per IP, ideally should be per user ID using keyGenerator
-export const profileCreationLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: 5,
-  message: 'Too many profile creation attempts, please try again tomorrow',
+// Authentication rate limiter (10 requests per 15 minutes per IP)
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: 'Too many authentication attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:profile:create:',
-  }) : undefined,
   handler: (req, res) => {
-    logger.warn('Profile creation rate limit exceeded', {
+    logger.warn('Auth rate limit exceeded', {
       ip: req.ip,
-      userId: (req as any).user?.userId,
-      limiter: 'profileCreation'
+      path: req.path,
+      limiter: 'auth'
     });
     res.status(429).json({
       success: false,
-      error: 'Too many profile creation attempts, please try again tomorrow'
+      error: 'Too many authentication attempts, please try again later'
     });
   }
 });
 
-// Discovery rate limiter (200 requests per 15 minutes per user)
-export const discoveryLimiter = rateLimit({
+// Token verification rate limiter (100 requests per 15 minutes per IP)
+export const verifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
-  message: 'Too many discovery requests, please try again later',
+  max: 100,
+  message: 'Too many verification requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:profile:discover:',
-  }) : undefined,
   handler: (req, res) => {
-    logger.warn('Discovery rate limit exceeded', {
+    logger.warn('Verify rate limit exceeded', {
       ip: req.ip,
-      userId: (req as any).user?.userId,
-      limiter: 'discovery'
+      path: req.path,
+      limiter: 'verify'
     });
     res.status(429).json({
       success: false,
-      error: 'Too many discovery requests, please try again later'
+      error: 'Too many verification requests, please try again later'
     });
   }
 });
@@ -105,10 +78,6 @@ export const strictLimiter = rateLimit({
   message: 'Too many requests for this sensitive operation, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:profile:strict:',
-  }) : undefined,
   handler: (req, res) => {
     logger.warn('Strict rate limit exceeded', {
       ip: req.ip,
@@ -122,5 +91,42 @@ export const strictLimiter = rateLimit({
   }
 });
 
-// Export redis client for graceful shutdown
-export { redisClient };
+// Profile creation rate limiter (5 profile creations per day per IP)
+export const profileCreationLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 5,
+  message: 'Too many profile creations from this IP, please try again tomorrow',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logger.warn('Profile creation rate limit exceeded', {
+      ip: req.ip,
+      path: req.path,
+      limiter: 'profile-creation'
+    });
+    res.status(429).json({
+      success: false,
+      error: 'Too many profile creations from this IP, please try again tomorrow'
+    });
+  }
+});
+
+// Discovery rate limiter (200 requests per 15 minutes per IP)
+export const discoveryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  message: 'Too many discovery requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logger.warn('Discovery rate limit exceeded', {
+      ip: req.ip,
+      path: req.path,
+      limiter: 'discovery'
+    });
+    res.status(429).json({
+      success: false,
+      error: 'Too many discovery requests, please try again later'
+    });
+  }
+});

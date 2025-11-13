@@ -1,28 +1,14 @@
 import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import { createClient } from 'redis';
 import logger from '../utils/logger';
 
-// Optional Redis client (falls back to memory if not configured)
-let redisClient: ReturnType<typeof createClient> | undefined;
-
+// Note: Using memory store for rate limiting
+// For production with multiple instances, configure Redis via REDIS_URL
+// and install rate-limit-redis package
 if (process.env.REDIS_URL) {
-  redisClient = createClient({ url: process.env.REDIS_URL });
-
-  redisClient.on('error', (err) => {
-    logger.error('Redis client error', { error: err.message });
-  });
-
-  redisClient.on('connect', () => {
-    logger.info('Redis client connected for rate limiting');
-  });
-
-  redisClient.connect().catch((err) => {
-    logger.warn('Failed to connect to Redis, falling back to memory store', { error: err.message });
-    redisClient = undefined;
-  });
+  logger.warn('REDIS_URL is set but Redis integration is disabled. Using memory store for rate limiting.');
+  logger.warn('To enable Redis: npm install rate-limit-redis redis and update rate-limiter.ts');
 } else {
-  logger.info('REDIS_URL not set, using memory store for rate limiting (not suitable for production)');
+  logger.info('Using memory store for rate limiting (sufficient for single-instance deployment)');
 }
 
 // General API rate limiter (100 requests per 15 minutes per IP)
@@ -32,10 +18,6 @@ export const generalLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:general:',
-  }) : undefined,
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,
@@ -56,10 +38,6 @@ export const authLimiter = rateLimit({
   message: 'Too many authentication attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:auth:',
-  }) : undefined,
   handler: (req, res) => {
     logger.warn('Auth rate limit exceeded', {
       ip: req.ip,
@@ -80,10 +58,6 @@ export const verifyLimiter = rateLimit({
   message: 'Too many verification requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:verify:',
-  }) : undefined,
   handler: (req, res) => {
     logger.warn('Verify rate limit exceeded', {
       ip: req.ip,
@@ -104,10 +78,6 @@ export const strictLimiter = rateLimit({
   message: 'Too many requests for this sensitive operation, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient ? new RedisStore({
-    client: redisClient,
-    prefix: 'rl:strict:',
-  }) : undefined,
   handler: (req, res) => {
     logger.warn('Strict rate limit exceeded', {
       ip: req.ip,
@@ -120,6 +90,3 @@ export const strictLimiter = rateLimit({
     });
   }
 });
-
-// Export redis client for graceful shutdown
-export { redisClient };
