@@ -232,9 +232,10 @@ app.post('/auth/verify', verifyLimiter, (req: Request, res: Response) => {
   }
 });
 
-// Test login endpoint (ONLY FOR DEVELOPMENT/TESTING)
+// Test login endpoint (ONLY FOR DEVELOPMENT/TESTING/BETA)
 // This bypasses OAuth and allows direct login with any user ID
-if (process.env.NODE_ENV !== 'production') {
+// Enable in beta testing with ENABLE_TEST_ENDPOINTS=true
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
   app.post('/auth/test-login', async (req: Request, res: Response) => {
     try {
       const { userId } = req.body;
