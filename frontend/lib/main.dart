@@ -13,8 +13,13 @@ import 'services/cache_service.dart';
 import 'services/safety_service.dart';
 import 'services/discovery_preferences_service.dart';
 import 'services/analytics_service.dart';
+import 'services/notification_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart';
+import 'screens/chat_screen.dart';
+
+// Global navigator key for navigation from notification callbacks
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +47,15 @@ void main() async {
     // Analytics works in both debug and release mode
     debugPrint('Firebase Analytics initialized');
 
+    // Initialize Notification Service
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+
+    // Set up notification tap handler
+    notificationService.onNotificationTap = (data) {
+      _handleNotificationTap(data);
+    };
+
     debugPrint('Firebase initialized successfully');
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
@@ -50,6 +64,32 @@ void main() async {
   }
 
   runApp(const MyApp());
+}
+
+/// Handle notification tap - navigate to appropriate screen
+void _handleNotificationTap(Map<String, dynamic> data) {
+  final type = data['type'];
+
+  if (type == 'message') {
+    // Navigate to chat screen
+    final matchId = data['matchId'];
+    if (matchId != null) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(matchId: matchId),
+        ),
+      );
+    }
+  } else if (type == 'match') {
+    // Navigate to matches tab
+    // The MainScreen will handle showing the matches tab
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => const MainScreen(initialTab: 1), // 1 = Matches tab
+      ),
+      (route) => false,
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -86,6 +126,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'NoBS Dating',
+        navigatorKey: navigatorKey,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,

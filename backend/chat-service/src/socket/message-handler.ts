@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { SocketWithAuth } from './auth-middleware';
+import { sendMessageNotification } from '../services/fcm-service';
 
 interface SendMessageData {
   matchId: string;
@@ -114,6 +115,21 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
           ['delivered', new Date(), messageId]
         );
         messageResponse.status = 'delivered';
+      } else {
+        // Recipient is offline - send push notification
+        // Get sender name for notification
+        const senderProfileResult = await pool.query(
+          'SELECT name FROM profiles WHERE id = $1',
+          [userId]
+        );
+
+        if (senderProfileResult.rows.length > 0) {
+          const senderName = senderProfileResult.rows[0].name;
+          // Fire and forget - don't await
+          sendMessageNotification(pool, recipientId, senderName, text, matchId).catch(err =>
+            logger.error('Failed to send message push notification', { recipientId, error: err })
+          );
+        }
       }
 
       logger.info('Message sent', {

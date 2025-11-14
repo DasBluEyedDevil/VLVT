@@ -23,6 +23,7 @@ import { validateMessage, validateMatch, validateReport, validateBlock } from '.
 import logger from './utils/logger';
 import { generalLimiter, matchLimiter, messageLimiter, reportLimiter } from './middleware/rate-limiter';
 import { initializeSocketIO } from './socket';
+import { initializeFirebase, registerFCMToken, unregisterFCMToken, sendMatchNotification } from './services/fcm-service';
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -88,6 +89,9 @@ pool.on('error', (err, client) => {
     stack: err.stack
   });
 });
+
+// Initialize Firebase for push notifications
+initializeFirebase();
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -182,6 +186,30 @@ app.post('/matches', authMiddleware, matchLimiter, validateMatch, async (req: Re
     );
 
     const match = result.rows[0];
+
+    // Send push notifications to both users about the match
+    // Get user names for the notifications
+    const profilesResult = await pool.query(
+      'SELECT id, name FROM profiles WHERE id IN ($1, $2)',
+      [userId1, userId2]
+    );
+
+    if (profilesResult.rows.length === 2) {
+      const user1Profile = profilesResult.rows.find((p: any) => p.id === userId1);
+      const user2Profile = profilesResult.rows.find((p: any) => p.id === userId2);
+
+      if (user1Profile && user2Profile) {
+        // Send notification to user1 about matching with user2 (don't await - fire and forget)
+        sendMatchNotification(pool, userId1, user2Profile.name, matchId).catch(err =>
+          logger.error('Failed to send match notification to user1', { userId: userId1, error: err })
+        );
+
+        // Send notification to user2 about matching with user1 (don't await - fire and forget)
+        sendMatchNotification(pool, userId2, user1Profile.name, matchId).catch(err =>
+          logger.error('Failed to send match notification to user2', { userId: userId2, error: err })
+        );
+      }
+    }
 
     res.json({
       success: true,
@@ -622,6 +650,63 @@ app.get('/reports', generalLimiter, async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Failed to retrieve reports', { error });
     res.status(500).json({ success: false, error: 'Failed to retrieve reports' });
+  }
+});
+
+// Register FCM token for push notifications
+app.post('/fcm/register', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { token, deviceType, deviceId } = req.body;
+
+    if (!token || !deviceType) {
+      return res.status(400).json({
+        success: false,
+        error: 'token and deviceType are required'
+      });
+    }
+
+    if (!['ios', 'android', 'web'].includes(deviceType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'deviceType must be ios, android, or web'
+      });
+    }
+
+    await registerFCMToken(pool, authenticatedUserId, token, deviceType, deviceId);
+
+    res.json({
+      success: true,
+      message: 'FCM token registered successfully'
+    });
+  } catch (error) {
+    logger.error('Failed to register FCM token', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to register FCM token' });
+  }
+});
+
+// Unregister FCM token
+app.post('/fcm/unregister', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'token is required'
+      });
+    }
+
+    await unregisterFCMToken(pool, authenticatedUserId, token);
+
+    res.json({
+      success: true,
+      message: 'FCM token unregistered successfully'
+    });
+  } catch (error) {
+    logger.error('Failed to unregister FCM token', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to unregister FCM token' });
   }
 });
 

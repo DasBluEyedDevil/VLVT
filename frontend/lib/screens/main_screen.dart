@@ -11,14 +11,16 @@ import 'profile_screen.dart';
 import 'profile_setup_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int initialTab;
+
+  const MainScreen({super.key, this.initialTab = 0});
 
   @override
   State<MainScreen> createState() => MainScreenState();
 }
 
 class MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   void setTab(int index) {
     if (index >= 0 && index < 3) {
@@ -31,6 +33,7 @@ class MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
     _initializeSubscription();
   }
   
