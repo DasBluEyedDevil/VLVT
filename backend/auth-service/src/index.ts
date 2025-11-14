@@ -309,8 +309,9 @@ ON CONFLICT (id) DO NOTHING;
       res.json({ success: true, message: 'Test users seeded successfully' });
       logger.info('Test users seeded');
     } catch (error) {
-      logger.error('Seed error', { error });
-      res.status(500).json({ success: false, error: 'Seed failed' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Seed error', { error: errorMessage, fullError: error });
+      res.status(500).json({ success: false, error: `Seed failed: ${errorMessage}` });
     }
   });
 
