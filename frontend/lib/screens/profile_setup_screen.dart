@@ -6,8 +6,8 @@ class ProfileSetupScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // Prevent back navigation during setup
+    return PopScope(
+      canPop: false, // Prevent back navigation during setup
       child: const ProfileEditScreen(
         isFirstTimeSetup: true,
       ),

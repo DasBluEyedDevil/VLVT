@@ -99,29 +99,43 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
 
     if (confirmed != true) return;
 
+    // Optimistic UI: Remove photo immediately
+    final deletedPhoto = photoUrl;
+    final deletedIndex = index;
+
+    setState(() {
+      _photos.removeAt(index);
+    });
+    widget.onPhotosChanged(_photos);
+
     try {
       // Extract photo ID from URL
       final photoId = photoUrl.split('/').last.split('.').first.split('_').last;
       final profileService = context.read<ProfileApiService>();
       await profileService.deletePhoto(photoId);
 
-      setState(() {
-        _photos.removeAt(index);
-      });
-      widget.onPhotosChanged(_photos);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Photo deleted successfully'),
             backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
+      // Revert optimistic update on failure
+      setState(() {
+        _photos.insert(deletedIndex, deletedPhoto);
+      });
+      widget.onPhotosChanged(_photos);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete photo: $e')),
+          SnackBar(
+            content: Text('Failed to delete photo: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

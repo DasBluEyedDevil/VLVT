@@ -446,7 +446,20 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
               : 'You\'ve seen all available profiles for now. Check back later for more matches!',
         ),
         actions: [
-          if (hasFilters)
+          if (hasFilters) ...[
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                // Reset all filters to defaults
+                await prefsService.clearFilters();
+                await _loadProfiles();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.deepPurple,
+                fontWeight: FontWeight.bold,
+              ),
+              child: const Text('Clear Filters'),
+            ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -454,6 +467,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
               },
               child: const Text('Adjust Filters'),
             ),
+          ],
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
