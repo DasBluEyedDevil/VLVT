@@ -660,10 +660,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: _messages!.length + (_isTyping ? 1 : 0),
+        itemCount: _messages!.length + (_otherUserTyping ? 1 : 0),
         itemBuilder: (context, index) {
           // Show typing indicator as last item
-          if (_isTyping && index == _messages!.length) {
+          if (_otherUserTyping && index == _messages!.length) {
             return Align(
               alignment: Alignment.centerLeft,
               child: Container(

@@ -92,11 +92,6 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10kb' }));
 
-// TEMPORARY: Migration endpoint (remove after migrations complete)
-// WARNING: This endpoint should be removed in production
-// Migrations should be run via Railway CLI or separate script
-// app.use('/admin', migrateRouter);
-
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'auth-service' });

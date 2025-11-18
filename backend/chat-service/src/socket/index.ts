@@ -147,7 +147,9 @@ async function broadcastOnlineStatus(
 
 /**
  * Send push notification for new message (if user is offline)
- * This is a placeholder - implement with FCM later
+ * Note: This function is deprecated and kept for backward compatibility.
+ * The actual FCM notification is now sent directly from message-handler.ts
+ * using the fcm-service module.
  */
 export async function sendMessageNotification(
   pool: Pool,
@@ -156,40 +158,13 @@ export async function sendMessageNotification(
   matchId: string,
   messageText: string
 ) {
-  try {
-    // Check if recipient is offline
-    const statusResult = await pool.query(
-      'SELECT is_online FROM user_status WHERE user_id = $1',
-      [recipientId]
-    );
-
-    const isOnline = statusResult.rows[0]?.is_online || false;
-
-    if (!isOnline) {
-      // Get FCM tokens for recipient
-      const tokenResult = await pool.query(
-        'SELECT token, device_type FROM fcm_tokens WHERE user_id = $1 AND is_active = true',
-        [recipientId]
-      );
-
-      if (tokenResult.rows.length > 0) {
-        // TODO: Implement FCM notification sending
-        // This will be implemented in the FCM service
-        logger.info('Push notification queued', {
-          recipientId,
-          senderId,
-          matchId,
-          tokenCount: tokenResult.rows.length
-        });
-      }
-    }
-  } catch (error) {
-    logger.error('Error sending message notification', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      recipientId,
-      senderId
-    });
-  }
+  logger.warn('Deprecated sendMessageNotification called - use fcm-service directly', {
+    recipientId,
+    senderId,
+    matchId
+  });
+  // This function is kept for compatibility but doesn't do anything
+  // FCM notifications are now handled in message-handler.ts
 }
 
 export type { SocketServer };

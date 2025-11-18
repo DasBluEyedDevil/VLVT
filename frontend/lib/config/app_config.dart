@@ -19,14 +19,31 @@ class AppConfig {
   /// RevenueCat API key
   /// Get your key from: https://app.revenuecat.com/
   ///
-  /// TODO: Configure separate API keys for iOS and Android
-  /// - iOS: Get from App Store Connect integration
-  /// - Android: Get from Google Play Console integration
-  /// - Both platforms need separate keys from RevenueCat dashboard
-  static const String revenueCatApiKey = String.fromEnvironment(
-    'REVENUECAT_API_KEY',
-    defaultValue: 'YOUR_REVENUECAT_API_KEY', // Replace with actual key
-  );
+  /// IMPORTANT: Configure platform-specific API keys
+  /// - iOS: Set REVENUECAT_API_KEY_IOS in build arguments
+  /// - Android: Set REVENUECAT_API_KEY_ANDROID in build arguments
+  /// - Get keys from RevenueCat dashboard after setting up App Store/Play Store integration
+  ///
+  /// Build with: flutter build --dart-define=REVENUECAT_API_KEY_IOS=your_key_here
+  static String get revenueCatApiKey {
+    if (Platform.isIOS) {
+      return const String.fromEnvironment(
+        'REVENUECAT_API_KEY_IOS',
+        defaultValue: '', // Must be set for production iOS builds
+      );
+    } else if (Platform.isAndroid) {
+      return const String.fromEnvironment(
+        'REVENUECAT_API_KEY_ANDROID',
+        defaultValue: '', // Must be set for production Android builds
+      );
+    }
+    return ''; // Unsupported platform
+  }
+
+  /// Validate that RevenueCat is configured (required for subscription features)
+  static bool get isRevenueCatConfigured {
+    return revenueCatApiKey.isNotEmpty;
+  }
 
   /// Backend service URLs
   ///
@@ -48,44 +65,53 @@ class AppConfig {
   static const String _prodChatServiceUrl = 'https://nobsdatingchat.up.railway.app';
 
   /// Auth Service URL with local development fallback
+  ///
+  /// In debug mode: Uses localhost (or 10.0.2.2 for Android emulator)
+  /// In release mode: Uses Railway production URL
+  /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get authServiceUrl {
-    // TEMPORARY: Always use Railway for testing on real devices
-    return _prodAuthServiceUrl;
+    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
-    // Uncomment below for local development:
-    // if (kDebugMode) {
-    //   return Platform.isAndroid
-    //     ? 'http://10.0.2.2:3001'
-    //     : 'http://localhost:3001';
-    // }
-    // return _prodAuthServiceUrl;
+    if (!kReleaseMode && forceProd != 'true') {
+      // Local development mode
+      return Platform.isAndroid
+          ? 'http://10.0.2.2:3001' // Android emulator localhost
+          : 'http://localhost:3001'; // iOS simulator or web
+    }
+    return _prodAuthServiceUrl;
   }
 
   /// Profile Service URL with local development fallback
+  ///
+  /// In debug mode: Uses localhost (or 10.0.2.2 for Android emulator)
+  /// In release mode: Uses Railway production URL
+  /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get profileServiceUrl {
-    // TEMPORARY: Always use Railway for testing on real devices
-    return _prodProfileServiceUrl;
+    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
-    // Uncomment below for local development:
-    // if (kDebugMode) {
-    //   return Platform.isAndroid
-    //     ? 'http://10.0.2.2:3002'
-    //     : 'http://localhost:3002';
-    // }
-    // return _prodProfileServiceUrl;
+    if (!kReleaseMode && forceProd != 'true') {
+      // Local development mode
+      return Platform.isAndroid
+          ? 'http://10.0.2.2:3002' // Android emulator localhost
+          : 'http://localhost:3002'; // iOS simulator or web
+    }
+    return _prodProfileServiceUrl;
   }
 
   /// Chat Service URL with local development fallback
+  ///
+  /// In debug mode: Uses localhost (or 10.0.2.2 for Android emulator)
+  /// In release mode: Uses Railway production URL
+  /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get chatServiceUrl {
-    // TEMPORARY: Always use Railway for testing on real devices
-    return _prodChatServiceUrl;
+    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
-    // Uncomment below for local development:
-    // if (kDebugMode) {
-    //   return Platform.isAndroid
-    //     ? 'http://10.0.2.2:3003'
-    //     : 'http://localhost:3003';
-    // }
-    // return _prodChatServiceUrl;
+    if (!kReleaseMode && forceProd != 'true') {
+      // Local development mode
+      return Platform.isAndroid
+          ? 'http://10.0.2.2:3003' // Android emulator localhost
+          : 'http://localhost:3003'; // iOS simulator or web
+    }
+    return _prodChatServiceUrl;
   }
 }

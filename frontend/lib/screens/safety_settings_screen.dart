@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/safety_service.dart';
 import '../services/profile_api_service.dart';
 import '../models/profile.dart';
@@ -97,6 +98,68 @@ class _SafetySettingsScreenState extends State<SafetySettingsScreen> {
             SnackBar(content: Text('Failed to unblock user: $e')),
           );
         }
+      }
+    }
+  }
+
+  /// Contact support via email
+  Future<void> _contactSupport() async {
+    const supportEmail = 'support@nobsdating.com';
+    const subject = 'NoBS Dating - Safety Concern';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: supportEmail,
+      query: 'subject=${Uri.encodeComponent(subject)}',
+    );
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        // Fallback: show dialog with support email
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Contact Support'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Please email us at:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    supportEmail,
+                    style: const TextStyle(
+                      color: Colors.deepPurple,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'We typically respond within 24 hours.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error opening email: $e')),
+        );
       }
     }
   }
@@ -268,13 +331,7 @@ class _SafetySettingsScreenState extends State<SafetySettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Support contact feature coming soon'),
-                      ),
-                    );
-                  },
+                  onPressed: _contactSupport,
                   icon: const Icon(Icons.support_agent),
                   label: const Text('Contact Support'),
                   style: ElevatedButton.styleFrom(

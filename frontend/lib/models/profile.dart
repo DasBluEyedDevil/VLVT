@@ -5,6 +5,7 @@ class Profile {
   final String? bio;
   final List<String>? photos;
   final List<String>? interests;
+  final double? distance; // Distance in kilometers from current user
 
   Profile({
     required this.userId,
@@ -13,6 +14,7 @@ class Profile {
     this.bio,
     this.photos,
     this.interests,
+    this.distance,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,9 @@ class Profile {
       interests: json['interests'] != null
           ? List<String>.from(json['interests'] as List)
           : null,
+      distance: json['distance'] != null
+          ? (json['distance'] as num).toDouble()
+          : null,
     );
   }
 
@@ -38,6 +43,7 @@ class Profile {
       'bio': bio,
       'photos': photos,
       'interests': interests,
+      if (distance != null) 'distance': distance,
     };
   }
 }

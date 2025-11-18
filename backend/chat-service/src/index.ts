@@ -366,13 +366,12 @@ app.get('/matches/:userId/unread-counts', authMiddleware, generalLimiter, async 
   }
 });
 
-// Mark messages as read (placeholder for future implementation)
-// This would require adding a read_at timestamp to messages or a separate read_receipts table
+// Mark messages as read - HTTP endpoint (WebSocket is primary, but this provides HTTP fallback)
 app.put('/messages/:matchId/mark-read', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
   try {
     const { matchId } = req.params;
     const authenticatedUserId = req.user!.userId;
-    const { userId } = req.body;
+    const { userId, messageIds } = req.body;
 
     if (!userId) {
       return res.status(400).json({ success: false, error: 'userId is required' });
@@ -388,7 +387,7 @@ app.put('/messages/:matchId/mark-read', authMiddleware, generalLimiter, async (r
 
     // Verify the user is part of this match
     const matchCheck = await pool.query(
-      `SELECT id FROM matches
+      `SELECT user_id_1, user_id_2 FROM matches
        WHERE id = $1 AND (user_id_1 = $2 OR user_id_2 = $2)`,
       [matchId, authenticatedUserId]
     );
@@ -400,9 +399,59 @@ app.put('/messages/:matchId/mark-read', authMiddleware, generalLimiter, async (r
       });
     }
 
-    // For now, just return success
-    // In a full implementation, this would update a read_receipts table or add timestamps
-    res.json({ success: true, message: 'Messages marked as read (placeholder)' });
+    const now = new Date();
+    let query: string;
+    let params: any[];
+
+    if (messageIds && Array.isArray(messageIds) && messageIds.length > 0) {
+      // Mark specific messages as read
+      query = `
+        UPDATE messages
+        SET status = 'read', read_at = $1
+        WHERE match_id = $2
+          AND id = ANY($3)
+          AND sender_id != $4
+          AND (status != 'read' OR read_at IS NULL)
+        RETURNING id
+      `;
+      params = [now, matchId, messageIds, authenticatedUserId];
+    } else {
+      // Mark all unread messages in the match as read
+      query = `
+        UPDATE messages
+        SET status = 'read', read_at = $1
+        WHERE match_id = $2
+          AND sender_id != $3
+          AND (status != 'read' OR read_at IS NULL)
+        RETURNING id
+      `;
+      params = [now, matchId, authenticatedUserId];
+    }
+
+    const result = await pool.query(query, params);
+    const readMessageIds = result.rows.map(row => row.id);
+
+    // Insert read receipts
+    if (readMessageIds.length > 0) {
+      const receiptValues = readMessageIds.map((msgId, idx) =>
+        `($${idx * 3 + 1}, $${idx * 3 + 2}, $${idx * 3 + 3})`
+      ).join(', ');
+
+      const receiptParams = readMessageIds.flatMap(msgId => [msgId, authenticatedUserId, now]);
+
+      await pool.query(
+        `INSERT INTO read_receipts (message_id, user_id, read_at)
+         VALUES ${receiptValues}
+         ON CONFLICT (message_id, user_id) DO NOTHING`,
+        receiptParams
+      );
+    }
+
+    res.json({
+      success: true,
+      count: readMessageIds.length,
+      messageIds: readMessageIds
+    });
   } catch (error) {
     logger.error('Failed to mark messages as read', { error, matchId: req.params.matchId });
     res.status(500).json({ success: false, error: 'Failed to mark messages as read' });

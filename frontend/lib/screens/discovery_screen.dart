@@ -7,6 +7,7 @@ import '../services/chat_api_service.dart';
 import '../services/subscription_service.dart';
 import '../services/discovery_preferences_service.dart';
 import '../services/analytics_service.dart';
+import '../services/location_service.dart';
 import '../widgets/premium_gate_dialog.dart';
 import '../widgets/empty_state_widget.dart';
 import '../models/profile.dart';
@@ -899,9 +900,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                           ],
                                         ),
                                         const SizedBox(height: 12),
-                                        const Text(
-                                          'Distance: Not available yet',
-                                          style: TextStyle(color: Colors.white70),
+                                        Text(
+                                          profile.distance != null
+                                              ? 'Distance: ${LocationService.formatDistance(profile.distance! * 1000)}' // Convert km to meters
+                                              : 'Distance: Not available',
+                                          style: const TextStyle(color: Colors.white70),
                                         ),
                                         const SizedBox(height: 8),
                                         const Text(
