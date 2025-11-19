@@ -90,6 +90,7 @@ class DiscoveryPreferencesService extends ChangeNotifier {
   static const String _seenProfilesKey = 'discovery_seen_profiles';
   static const String _filtersKey = 'discovery_filters';
   static const String _currentIndexKey = 'discovery_current_index';
+  static const String _tutorialSeenKey = 'discovery_tutorial_seen';
   static const Duration _seenProfilesExpiration = Duration(hours: 24);
 
   SharedPreferences? _prefs;
@@ -217,6 +218,19 @@ class DiscoveryPreferencesService extends ChangeNotifier {
 
   Future<void> clearSavedIndex() async {
     await _prefs?.remove(_currentIndexKey);
+  }
+
+  // Tutorial tracking
+  bool get hasSeenTutorial => _prefs?.getBool(_tutorialSeenKey) ?? false;
+
+  Future<void> markTutorialAsSeen() async {
+    await _prefs?.setBool(_tutorialSeenKey, true);
+    notifyListeners();
+  }
+
+  Future<void> resetTutorial() async {
+    await _prefs?.remove(_tutorialSeenKey);
+    notifyListeners();
   }
 
   // Get stats

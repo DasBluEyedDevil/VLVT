@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/profile_api_service.dart';
@@ -11,6 +12,7 @@ import '../services/location_service.dart';
 import '../widgets/premium_gate_dialog.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/loading_skeleton.dart';
+import '../widgets/swipe_tutorial_overlay.dart';
 import '../models/profile.dart';
 import '../models/match.dart';
 import 'discovery_filters_screen.dart';
@@ -54,6 +56,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
   late AnimationController _swipeAnimationController;
   late Animation<Offset> _swipeAnimation;
 
+  // Tutorial state
+  bool _showTutorial = false;
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +100,18 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
     }
 
     await _loadProfiles();
+
+    // Show tutorial if first time
+    if (!prefsService.hasSeenTutorial && mounted) {
+      // Delay to allow screen to settle
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _showTutorial = true;
+          });
+        }
+      });
+    }
   }
 
   Future<void> _loadProfiles() async {
@@ -321,6 +338,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
 
   // Swipe gesture handlers
   void _onPanStart(DragStartDetails details) {
+    HapticFeedback.selectionClick();
     setState(() {
       _isDragging = true;
     });
@@ -366,10 +384,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
         });
         _swipeAnimationController.reset();
 
-        // Trigger appropriate action
+        // Trigger appropriate action with haptic feedback
         if (swipeRight) {
+          HapticFeedback.mediumImpact();
           _onLike();
         } else {
+          HapticFeedback.lightImpact();
           _onPass();
         }
       });
@@ -530,6 +550,59 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
   int get _remainingProfiles {
     if (_filteredProfiles.isEmpty) return 0;
     return _filteredProfiles.length - _currentProfileIndex;
+  }
+
+  void _dismissTutorial() {
+    final prefsService = context.read<DiscoveryPreferencesService>();
+    prefsService.markTutorialAsSeen();
+    setState(() {
+      _showTutorial = false;
+    });
+  }
+
+  Widget _buildSwipeHint() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 1.0),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: child,
+        );
+      },
+      onEnd: () {
+        // Repeat animation
+        if (mounted) {
+          setState(() {});
+        }
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.arrow_back,
+            color: Colors.red.withOpacity(0.6),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Swipe to interact',
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.arrow_forward,
+            color: Colors.green.withOpacity(0.6),
+            size: 20,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1031,34 +1104,61 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                   ),
                 ),
 
-                // Action Buttons
+                // Action Buttons - Made less prominent to encourage swiping
                 Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      FloatingActionButton(
-                        heroTag: 'pass',
-                        onPressed: _onPass,
-                        backgroundColor: Colors.red,
-                        child: const Icon(Icons.close, size: 32),
+                      // Pass button - smaller and semi-transparent
+                      Opacity(
+                        opacity: 0.7,
+                        child: FloatingActionButton(
+                          heroTag: 'pass',
+                          mini: true,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            _onPass();
+                          },
+                          backgroundColor: Colors.red,
+                          child: const Icon(Icons.close, size: 24),
+                        ),
                       ),
                       if (_showUndoButton)
                         FloatingActionButton(
                           heroTag: 'undo',
-                          onPressed: _onUndo,
+                          mini: true,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            _onUndo();
+                          },
                           backgroundColor: Colors.blue,
-                          child: const Icon(Icons.undo, size: 28),
+                          child: const Icon(Icons.undo, size: 20),
                         ),
-                      FloatingActionButton(
-                        heroTag: 'like',
-                        onPressed: _onLike,
-                        backgroundColor: Colors.green,
-                        child: const Icon(Icons.favorite, size: 32),
+                      // Like button - smaller and semi-transparent
+                      Opacity(
+                        opacity: 0.7,
+                        child: FloatingActionButton(
+                          heroTag: 'like',
+                          mini: true,
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            _onLike();
+                          },
+                          backgroundColor: Colors.green,
+                          child: const Icon(Icons.favorite, size: 24),
+                        ),
                       ),
                     ],
                   ),
                 ),
+
+                // Swipe hint for first-time users
+                if (!_isDragging && !prefsService.hasSeenTutorial && !_showTutorial)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: _buildSwipeHint(),
+                  ),
               ],
             ),
 
@@ -1087,6 +1187,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
+                ),
+              ),
+
+            // Tutorial overlay
+            if (_showTutorial)
+              Positioned.fill(
+                child: SwipeTutorialOverlay(
+                  onDismiss: _dismissTutorial,
                 ),
               ),
           ],
