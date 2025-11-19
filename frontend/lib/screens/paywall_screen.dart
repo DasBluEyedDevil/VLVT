@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
+import '../config/app_colors.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool showBackButton;
@@ -91,12 +92,22 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.deepPurple.shade400, Colors.deepPurple.shade600],
+                    colors: [
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.primaryDark
+                          : AppColors.primaryLight,
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.primaryDark.withOpacity(0.7)
+                          : AppColors.primaryLight.withOpacity(0.7),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.deepPurple.withOpacity(0.3),
+                      color: (Theme.of(context).brightness == Brightness.dark
+                              ? AppColors.primaryDark
+                              : AppColors.primaryLight)
+                          .withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -151,7 +162,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     await subscriptionService.purchaseSubscription();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.primaryDark
+                        : AppColors.primaryLight,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -178,14 +191,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      side: const BorderSide(color: Colors.deepPurple),
+                      side: BorderSide(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.primaryDark
+                            : AppColors.primaryLight,
+                      ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Continue with Limited Access',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.deepPurple,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.primaryDark
+                            : AppColors.primaryLight,
                       ),
                     ),
                   ),
@@ -206,7 +225,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[600],
+                  color: AppColors.textSecondary(context),
                 ),
               ),
             ],
@@ -234,7 +253,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: AppColors.textSecondary(context),
               ),
             ),
           ),

@@ -20,7 +20,6 @@ import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
-import migrateRouter from './migrate-endpoint';
 import logger from './utils/logger';
 import { authLimiter, verifyLimiter, generalLimiter } from './middleware/rate-limiter';
 

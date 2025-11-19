@@ -541,7 +541,13 @@ app.get('/profiles/discover', authMiddleware, discoveryLimiter, async (req: Requ
     }
 
     // Build WHERE clause conditions
-    const conditions = ['user_id != $1'];
+    const conditions = [
+      'user_id != $1',
+      // Exclude users who blocked me (for privacy and safety)
+      `user_id NOT IN (SELECT user_id FROM blocks WHERE blocked_user_id = $1)`,
+      // Exclude users I blocked
+      `user_id NOT IN (SELECT blocked_user_id FROM blocks WHERE user_id = $1)`
+    ];
     const params: any[] = [authenticatedUserId];
     let paramIndex = 2;
 

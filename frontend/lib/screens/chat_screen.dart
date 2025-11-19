@@ -7,12 +7,14 @@ import '../services/chat_api_service.dart';
 import '../services/socket_service.dart';
 import '../services/profile_api_service.dart';
 import '../services/subscription_service.dart';
+import '../services/message_queue_service.dart';
 import '../models/match.dart';
 import '../models/message.dart';
 import '../models/profile.dart';
 import '../utils/date_utils.dart';
 import '../widgets/user_action_sheet.dart';
 import '../widgets/premium_gate_dialog.dart';
+import '../config/app_colors.dart';
 
 class ChatScreen extends StatefulWidget {
   final Match match;
@@ -78,6 +80,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (!socketService.isConnected) {
         socketService.connect();
       }
+
+      // Process queued messages when app resumes and socket is connected
+      Future.delayed(const Duration(seconds: 1), () async {
+        if (socketService.isConnected) {
+          final queueService = context.read<MessageQueueService>();
+          await queueService.processQueue(socketService);
+        }
+      });
     }
     // Keep socket connected even when paused for background notifications
   }
@@ -353,17 +363,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // Check socket connection
     if (!socketService.isConnected) {
+      // Queue message for later delivery (prevents message loss)
+      final queueService = context.read<MessageQueueService>();
+      await queueService.enqueue(QueuedMessage(
+        tempId: tempId,
+        matchId: widget.match.id,
+        text: text,
+        timestamp: DateTime.now(),
+      ));
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connecting to chat server...')),
+        const SnackBar(
+          content: Text('Message queued. Will send when connected.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
       );
-      await socketService.connect();
-      await Future.delayed(const Duration(seconds: 1));
-      if (!socketService.isConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to connect to chat server')),
-        );
-        return;
-      }
+
+      // Try to reconnect in background
+      socketService.connect();
+      return;
     }
 
     // Create temporary message with 'sending' status
@@ -584,15 +603,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Messages list
-          Expanded(
-            child: _buildMessagesList(currentUserId),
-          ),
-          // Message input
-          _buildMessageInput(),
-        ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Column(
+          children: [
+            // Messages list
+            Expanded(
+              child: _buildMessagesList(currentUserId),
+            ),
+            // Message input
+            _buildMessageInput(),
+          ],
+        ),
       ),
     );
   }
@@ -670,15 +693,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.typingIndicatorBackground(context),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
+                child: Text(
                   '...',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black54,
+                    color: AppColors.typingIndicatorDots(context),
                     letterSpacing: 2,
                   ),
                 ),
@@ -725,7 +748,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 decoration: BoxDecoration(
                   color: isFailed
                       ? Colors.red[100]
-                      : (isCurrentUser ? Colors.deepPurple : Colors.grey[300]),
+                      : (isCurrentUser
+                          ? AppColors.messageBubbleSent(context)
+                          : AppColors.messageBubbleReceived(context)),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -737,7 +762,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         fontSize: 16,
                         color: isFailed
                             ? Colors.red[900]
-                            : (isCurrentUser ? Colors.white : Colors.black87),
+                            : (isCurrentUser
+                                ? AppColors.messageBubbleTextSent(context)
+                                : AppColors.messageBubbleTextReceived(context)),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -750,7 +777,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             fontSize: 11,
                             color: isFailed
                                 ? Colors.red[700]
-                                : (isCurrentUser ? Colors.white70 : Colors.black54),
+                                : (isCurrentUser
+                                    ? AppColors.messageTimestampSent(context)
+                                    : AppColors.messageTimestampReceived(context)),
                           ),
                         ),
                         if (isCurrentUser && !isFailed) ...[
@@ -836,7 +865,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface(context),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.3),
@@ -881,7 +910,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[200],
+                      fillColor: AppColors.inputBackground(context),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 10,

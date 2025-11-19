@@ -10,10 +10,12 @@ import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../widgets/premium_gate_dialog.dart';
 import '../widgets/empty_state_widget.dart';
+import '../widgets/loading_skeleton.dart';
 import '../models/profile.dart';
 import '../models/match.dart';
 import 'discovery_filters_screen.dart';
 import 'dart:async';
+import '../config/app_colors.dart';
 
 class DiscoveryScreen extends StatefulWidget {
   const DiscoveryScreen({super.key});
@@ -455,7 +457,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                 await _loadProfiles();
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.deepPurple,
+                foregroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.primaryDark
+                    : AppColors.primaryLight,
                 fontWeight: FontWeight.bold,
               ),
               child: const Text('Clear Filters'),
@@ -550,9 +554,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
             ),
           ],
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const ProfileCardSkeleton(),
       );
     }
 
@@ -762,8 +764,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Colors.deepPurple.shade100,
-                                    Colors.deepPurple.shade300,
+                                    Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.primaryDark.withOpacity(0.3)
+                                        : AppColors.primaryLight.withOpacity(0.3),
+                                    Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.primaryDark
+                                        : AppColors.primaryLight,
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(16),
@@ -796,9 +802,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                                       itemBuilder: (context, index) {
                                                         final photoUrl = profile.photos![index];
                                                         final profileService = context.read<ProfileApiService>();
-                                                        return CachedNetworkImage(
-                                                          imageUrl: '${profileService.baseUrl}$photoUrl',
-                                                          fit: BoxFit.cover,
+                                                        return Hero(
+                                                          tag: 'profile_${profile.userId}_photo_$index',
+                                                          child: CachedNetworkImage(
+                                                            imageUrl: '${profileService.baseUrl}$photoUrl',
+                                                            fit: BoxFit.cover,
                                                           placeholder: (context, url) => Container(
                                                             color: Colors.white.withOpacity(0.2),
                                                             child: const Center(
@@ -814,6 +822,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                                               size: 80,
                                                               color: Colors.white70,
                                                             ),
+                                                          ),
                                                           ),
                                                         );
                                                       },

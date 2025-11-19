@@ -114,8 +114,8 @@ You agree to indemnify and hold harmless NoBS Dating from any claims, damages, l
 
 ## 13. Governing Law and Dispute Resolution
 
-- These Terms are governed by the laws of [Your Jurisdiction]
-- Any disputes shall be resolved through binding arbitration
+- These Terms are governed by the laws of Delaware, United States
+- Any disputes shall be resolved through binding arbitration in accordance with Delaware law
 - Class action lawsuits are waived
 
 ## 14. Changes to Terms

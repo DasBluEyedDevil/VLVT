@@ -79,6 +79,35 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
         return callback?.({ success: false, error: 'Unauthorized' });
       }
 
+      // Check subscription limits (prevent bypass of client-side paywall)
+      const subscriptionCheck = await pool.query(
+        `SELECT is_active FROM user_subscriptions
+         WHERE user_id = $1 AND is_active = true AND (expires_at IS NULL OR expires_at > NOW())
+         LIMIT 1`,
+        [userId]
+      );
+      const isPremium = subscriptionCheck.rows.length > 0;
+
+      if (!isPremium) {
+        // Check daily message limit for free tier (20 messages/day)
+        const todayMessages = await pool.query(
+          `SELECT COUNT(*) as count FROM messages
+           WHERE sender_id = $1 AND created_at::date = CURRENT_DATE`,
+          [userId]
+        );
+        const messageCount = parseInt(todayMessages.rows[0].count) || 0;
+
+        if (messageCount >= 20) {
+          logger.info('Daily message limit reached', { userId, messageCount });
+          return callback?.({
+            success: false,
+            error: 'Daily message limit reached',
+            code: 'MESSAGE_LIMIT_REACHED',
+            message: 'You\'ve used all 20 messages for today. Upgrade to premium for unlimited messaging!'
+          });
+        }
+      }
+
       // Create the message
       const messageId = uuidv4();
       const now = new Date();

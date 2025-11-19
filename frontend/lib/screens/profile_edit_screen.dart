@@ -143,10 +143,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         title: Text(widget.isFirstTimeSetup ? 'Create Your Profile' : 'Edit Profile'),
         automaticallyImplyLeading: !widget.isFirstTimeSetup,
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
             padding: const EdgeInsets.all(24.0),
             children: [
               if (widget.isFirstTimeSetup) ...[
@@ -340,6 +343,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               ],
             ],
           ),
+        ),
+      ),
         ),
       ),
     );

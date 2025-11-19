@@ -70,11 +70,13 @@ export async function processImage(file: Express.Multer.File, userId: string): P
     const largePath = path.join(UPLOAD_DIR, largeFilename);
 
     const largeImage = await sharp(file.buffer)
+      .rotate() // Auto-rotate based on EXIF orientation AND strip all EXIF metadata (including GPS location)
       .resize(IMAGE_SIZES.large.width, IMAGE_SIZES.large.height, {
         fit: 'inside',
         withoutEnlargement: true,
       })
       .jpeg({ quality: 85, progressive: true })
+      .withMetadata({}) // Explicitly remove all metadata for privacy
       .toFile(largePath);
 
     // Process thumbnail
@@ -82,11 +84,13 @@ export async function processImage(file: Express.Multer.File, userId: string): P
     const thumbnailPath = path.join(UPLOAD_DIR, 'thumbnails', thumbnailFilename);
 
     await sharp(file.buffer)
+      .rotate() // Auto-rotate and strip EXIF from thumbnail too
       .resize(IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.height, {
         fit: 'cover',
         position: 'center',
       })
       .jpeg({ quality: 80 })
+      .withMetadata({}) // Remove metadata from thumbnail
       .toFile(thumbnailPath);
 
     logger.info('Image processed successfully', {

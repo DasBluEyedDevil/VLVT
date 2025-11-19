@@ -9,6 +9,7 @@ import 'safety_settings_screen.dart';
 import '../widgets/feedback_widget.dart';
 import '../widgets/theme_toggle_widget.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import '../config/app_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -119,11 +120,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
+                    Center(
                       child: CircleAvatar(
                         radius: 60,
-                        backgroundColor: Colors.deepPurple,
-                        child: Icon(
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.primaryDark
+                            : AppColors.primaryLight,
+                        child: const Icon(
                           Icons.person,
                           size: 60,
                           color: Colors.white,
@@ -144,9 +147,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Center(
                       child: Text(
                         userId,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: AppColors.textSecondary(context),
                         ),
                       ),
                     ),
@@ -219,9 +222,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             if (profile?.interests != null && profile!.interests!.isNotEmpty)
                               _buildInfoRow('Interests', profile.interests!.join(', ')),
                             if (!_hasProfileInfo(profile))
-                              const Text(
+                              Text(
                                 'No profile information available',
-                                style: TextStyle(color: Colors.grey),
+                                style: TextStyle(color: AppColors.textSecondary(context)),
                               ),
                           ],
                         ),
@@ -287,9 +290,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
-              color: Colors.grey,
+              color: AppColors.textSecondary(context),
             ),
           ),
           Text(

@@ -12,6 +12,7 @@ import '../models/message.dart';
 import '../utils/date_utils.dart';
 import '../widgets/user_action_sheet.dart';
 import '../widgets/empty_state_widget.dart';
+import '../widgets/loading_skeleton.dart';
 import 'chat_screen.dart';
 
 enum SortOption { recentActivity, newestMatches, nameAZ }
@@ -434,11 +435,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
       child: ListTile(
         leading: Stack(
           children: [
-            CircleAvatar(
-              backgroundColor: Colors.deepPurple,
-              child: Text(
-                name[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white),
+            Hero(
+              tag: 'profile_${match.otherUser.userId}',
+              child: CircleAvatar(
+                backgroundColor: Colors.deepPurple,
+                child: Text(
+                  name[0].toUpperCase(),
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ),
             if (unreadCount > 0)
@@ -622,9 +626,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   Widget _buildBody(List<Match> filteredMatches, String userId) {
     // Show loading indicator on initial load
     if (_isLoading && _matches.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const MatchListSkeleton();
     }
 
     // Show error state
