@@ -103,6 +103,9 @@ class AppColors {
     return Theme.of(context).colorScheme.onSurface.withOpacity(0.38);
   }
 
+  /// Text color for text on primary/colored backgrounds (always white for contrast)
+  static const Color textOnPrimary = Colors.white;
+
   // ===== BACKGROUND COLORS =====
 
   /// Card/surface background
