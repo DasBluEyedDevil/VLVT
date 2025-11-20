@@ -101,7 +101,7 @@ class _DiscoveryFiltersScreenState extends State<DiscoveryFiltersScreen> {
             onPressed: _clearFilters,
             child: Text(
               'Clear All',
-              style: TextStyle(color: AppColors.textOnPrimary),
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ],

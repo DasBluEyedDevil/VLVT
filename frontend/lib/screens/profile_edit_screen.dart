@@ -114,7 +114,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         SnackBar(
           content: Text(widget.isFirstTimeSetup
               ? 'Profile created successfully!'
-              : 'Profile updated successfully!', style: TextStyle(color: AppColors.textOnPrimary)),
+              : 'Profile updated successfully!', style: TextStyle(color: Colors.white)),
           backgroundColor: AppColors.success(context),
         ),
       );
@@ -125,7 +125,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save profile: ${e.toString()}', style: TextStyle(color: AppColors.textOnPrimary)),
+          content: Text('Failed to save profile: ${e.toString()}', style: TextStyle(color: Colors.white)),
           backgroundColor: AppColors.error(context),
         ),
       );

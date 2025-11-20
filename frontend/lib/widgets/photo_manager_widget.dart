@@ -62,7 +62,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Photo uploaded successfully', style: TextStyle(color: AppColors.textOnPrimary)),
+              content: Text('Photo uploaded successfully', style: TextStyle(color: Colors.white)),
               backgroundColor: AppColors.success(context),
             ),
           );
@@ -73,7 +73,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to upload photo: $e', style: TextStyle(color: AppColors.textOnPrimary)),
+            content: Text('Failed to upload photo: $e', style: TextStyle(color: Colors.white)),
             backgroundColor: AppColors.error(context),
           ),
         );
@@ -95,7 +95,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error(context)),
-            child: Text('Delete', style: TextStyle(color: AppColors.textOnPrimary)),
+            child: Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -121,7 +121,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Photo deleted successfully', style: TextStyle(color: AppColors.textOnPrimary)),
+            content: Text('Photo deleted successfully', style: TextStyle(color: Colors.white)),
             backgroundColor: AppColors.warning(context),
             duration: Duration(seconds: 2),
           ),
@@ -137,7 +137,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete photo: $e', style: TextStyle(color: AppColors.textOnPrimary)),
+            content: Text('Failed to delete photo: $e', style: TextStyle(color: Colors.white)),
             backgroundColor: AppColors.error(context),
           ),
         );
