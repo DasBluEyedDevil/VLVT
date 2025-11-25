@@ -197,6 +197,8 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
         body: json.encode({'userId': user.id}),
       );
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -316,8 +318,8 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.primaryDark.withOpacity(0.3)
-                          : AppColors.primaryLight.withOpacity(0.3),
+                          ? AppColors.primaryDark.withAlpha(77)
+                          : AppColors.primaryLight.withAlpha(77),
                       child: Text(
                         user.emoji,
                         style: const TextStyle(fontSize: 24),

@@ -501,7 +501,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                 foregroundColor: Theme.of(context).brightness == Brightness.dark
                     ? AppColors.primaryDark
                     : AppColors.primaryLight,
-                fontWeight: FontWeight.bold,
               ),
               child: const Text('Clear Filters'),
             ),
@@ -919,22 +918,22 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                                           child: CachedNetworkImage(
                                                             imageUrl: '${profileService.baseUrl}$photoUrl',
                                                             fit: BoxFit.cover,
-                                                          placeholder: (context, url) => Container(
-                                                            color: Colors.white.withOpacity(0.2),
-                                                            child: const Center(
-                                                              child: CircularProgressIndicator(
-                                                                color: Colors.white,
+                                                            placeholder: (context, url) => Container(
+                                                              color: Colors.white.withOpacity(0.2),
+                                                              child: const Center(
+                                                                child: CircularProgressIndicator(
+                                                                  color: Colors.white,
+                                                                ),
                                                               ),
                                                             ),
-                                                          ),
-                                                          errorWidget: (context, url, error) => Container(
-                                                            color: Colors.white.withOpacity(0.2),
-                                                            child: const Icon(
-                                                              Icons.broken_image,
-                                                              size: 80,
-                                                              color: Colors.white70,
+                                                            errorWidget: (context, url, error) => Container(
+                                                              color: Colors.white.withOpacity(0.2),
+                                                              child: const Icon(
+                                                                Icons.broken_image,
+                                                                size: 80,
+                                                                color: Colors.white70,
+                                                              ),
                                                             ),
-                                                          ),
                                                           ),
                                                         );
                                                       },
@@ -1130,12 +1129,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with SingleTickerProv
                                 ),
                             ],
                           ],
-                                                      ),
+                        ),
                                                     );
                                                   },
                                                 ),
                                               ),
                                             ),
+                                          ),
                           );
                         },
                       ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 /// Application configuration
 class AppConfig {
@@ -68,7 +70,7 @@ class AppConfig {
   /// In release mode: Uses Railway production URL
   /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get authServiceUrl {
-    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
+    const forceProd = String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
     if (!kReleaseMode && forceProd != 'true') {
       // Local development mode
@@ -85,7 +87,7 @@ class AppConfig {
   /// In release mode: Uses Railway production URL
   /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get profileServiceUrl {
-    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
+    const forceProd = String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
     if (!kReleaseMode && forceProd != 'true') {
       // Local development mode
@@ -102,7 +104,7 @@ class AppConfig {
   /// In release mode: Uses Railway production URL
   /// Override with: flutter run --dart-define=USE_PROD_URLS=true
   static String get chatServiceUrl {
-    final forceProd = const String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
+    const forceProd = String.fromEnvironment('USE_PROD_URLS', defaultValue: 'false');
 
     if (!kReleaseMode && forceProd != 'true') {
       // Local development mode

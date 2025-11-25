@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -438,7 +437,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         leading: Stack(
           children: [
             Hero(
-              tag: 'profile_${match.otherUser.userId}',
+              tag: 'profile_$otherUserId',
               child: CircleAvatar(
                 backgroundColor: AppColors.primaryLight,
                 backgroundImage: profile?.photos?.isNotEmpty == true

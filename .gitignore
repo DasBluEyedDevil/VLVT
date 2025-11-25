@@ -50,3 +50,4 @@ frontend/lib/firebase_options.dart
 
 # Environment
 .env
+/docs/

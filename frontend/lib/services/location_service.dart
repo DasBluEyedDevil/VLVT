@@ -24,7 +24,7 @@ class GeoLocation {
     return GeoLocation(
       latitude: position.latitude,
       longitude: position.longitude,
-      timestamp: position.timestamp ?? DateTime.now(),
+      timestamp: position.timestamp,
     );
   }
 

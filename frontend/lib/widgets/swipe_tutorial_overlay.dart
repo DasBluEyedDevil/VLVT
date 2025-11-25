@@ -155,7 +155,7 @@ class _SwipeTutorialOverlayState extends State<SwipeTutorialOverlay>
                           'Tap anywhere to dismiss',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withAlpha(153),
                           ),
                         ),
                       ],
@@ -193,10 +193,10 @@ class _SwipeTutorialOverlayState extends State<SwipeTutorialOverlay>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withAlpha(26),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: color.withOpacity(0.3),
+            color: color.withAlpha(77),
             width: 2,
           ),
         ),

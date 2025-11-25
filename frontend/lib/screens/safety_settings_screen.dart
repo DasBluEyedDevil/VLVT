@@ -122,24 +122,24 @@ class _SafetySettingsScreenState extends State<SafetySettingsScreen> {
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Contact Support'),
-              content: Column(
+              content: const Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Please email us at:',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   SelectableText(
                     supportEmail,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.deepPurple,
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
+                  SizedBox(height: 16),
+                  Text(
                     'We typically respond within 24 hours.',
                     style: TextStyle(color: Colors.grey),
                   ),

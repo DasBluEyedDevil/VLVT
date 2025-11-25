@@ -342,7 +342,7 @@ flutter run --dart-define=AUTH_SERVICE_URL=http://localhost:3001
 ---
 
 For more details, see:
-- [README.md](../README.md) - Overview and quick start
+- [README.md](README.md) - Overview and quick start
 - [SETUP.md](SETUP.md) - Detailed setup instructions
 - [IMPLEMENTATION.md](IMPLEMENTATION.md) - Technical details
 - [SECURITY.md](SECURITY.md) - Security considerations

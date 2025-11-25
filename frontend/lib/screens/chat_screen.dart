@@ -17,9 +17,11 @@ import '../widgets/premium_gate_dialog.dart';
 import '../config/app_colors.dart';
 
 class ChatScreen extends StatefulWidget {
-  final Match match;
+  final Match? match;
+  final String? matchId;
 
-  const ChatScreen({super.key, required this.match});
+  const ChatScreen({super.key, this.match, this.matchId})
+      : assert(match != null || matchId != null);
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -28,9 +30,12 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  // State
+  Match? _match;
   List<Message>? _messages;
   bool _isLoading = true;
-  bool _isSending = false;
+  final bool _isSending = false;
   String? _errorMessage;
   Profile? _otherUserProfile;
   String? _otherUserId;
@@ -55,7 +60,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadData();
+
+    if (widget.match != null) {
+      _match = widget.match;
+      _loadData();
+    } else {
+      _fetchMatchThenLoadData();
+    }
+
     _setupSocketListeners();
     _messageController.addListener(_onTextChanged);
   }
@@ -74,14 +86,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Connect/disconnect socket based on app state
     final socketService = context.read<SocketService>();
     if (state == AppLifecycleState.resumed) {
       if (!socketService.isConnected) {
         socketService.connect();
       }
-
-      // Process queued messages when app resumes and socket is connected
       Future.delayed(const Duration(seconds: 1), () async {
         if (socketService.isConnected) {
           final queueService = context.read<MessageQueueService>();
@@ -89,102 +98,82 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     }
-    // Keep socket connected even when paused for background notifications
   }
 
-  /// Setup Socket.IO event listeners
+  Future<void> _fetchMatchThenLoadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final authService = context.read<AuthService>();
+      final chatService = context.read<ChatApiService>();
+      final userId = authService.userId;
+      if (userId == null) throw Exception("Not authenticated");
+
+      // Inefficiently find the match from the list of all matches
+      final matches = await chatService.getMatches(userId);
+      final match = matches.firstWhere((m) => m.id == widget.matchId,
+          orElse: () => throw Exception("Match not found"));
+
+      setState(() {
+        _match = match;
+      });
+
+      await _loadData();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Failed to load match details: $e";
+      });
+    }
+  }
+
   void _setupSocketListeners() {
     final socketService = context.read<SocketService>();
-
-    // Ensure socket is connected
     if (!socketService.isConnected && !socketService.isConnecting) {
       socketService.connect();
     }
-
-    // Listen for new messages
     _messageSubscription = socketService.onNewMessage.listen((message) {
-      if (!mounted) return;
-
-      // Only handle messages for this match
-      if (message.matchId != widget.match.id) return;
-
+      if (!mounted || message.matchId != _match?.id) return;
       final wasNearBottom = _isNearBottom();
-
       setState(() {
         _messages = [...(_messages ?? []), message];
       });
-
-      // Auto-scroll if near bottom
       if (wasNearBottom) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom(animated: true);
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: true));
       }
-
-      // Mark message as read if this chat is open
       _markMessagesAsRead();
     });
-
-    // Listen for read receipts
     _readReceiptSubscription = socketService.onMessagesRead.listen((data) {
-      if (!mounted) return;
-
-      final matchId = data['matchId'] as String?;
-      if (matchId != widget.match.id) return;
-
+      if (!mounted || data['matchId'] != _match?.id) return;
       final messageIds = (data['messageIds'] as List?)?.cast<String>() ?? [];
-
       setState(() {
         _messages = _messages?.map((m) {
-          if (messageIds.contains(m.id)) {
-            return m.copyWith(status: MessageStatus.read);
-          }
-          return m;
+          return messageIds.contains(m.id) ? m.copyWith(status: MessageStatus.read) : m;
         }).toList();
       });
     });
-
-    // Listen for typing indicators
     _typingSubscription = socketService.onUserTyping.listen((data) {
-      if (!mounted) return;
-
-      final matchId = data['matchId'] as String?;
+      if (!mounted || data['matchId'] != _match?.id) return;
       final userId = data['userId'] as String?;
+      if (userId == context.read<AuthService>().userId) return;
       final isTyping = data['isTyping'] as bool? ?? false;
-
-      if (matchId != widget.match.id || userId == null) return;
-      if (userId == context.read<AuthService>().userId) return; // Ignore own typing
-
-      setState(() {
-        _otherUserTyping = isTyping;
-      });
-
-      // Auto-hide typing indicator after timeout
+      setState(() => _otherUserTyping = isTyping);
       if (isTyping) {
         _typingIndicatorTimer?.cancel();
         _typingIndicatorTimer = Timer(_typingIndicatorTimeout, () {
-          if (mounted) {
-            setState(() {
-              _otherUserTyping = false;
-            });
-          }
+          if (mounted) setState(() => _otherUserTyping = false);
         });
       }
     });
-
-    // Listen for online status changes
     _statusSubscription = socketService.onUserStatusChanged.listen((status) {
-      if (!mounted) return;
-
-      if (status.userId == _otherUserId) {
-        setState(() {
-          _isOtherUserOnline = status.isOnline;
-        });
+      if (mounted && status.userId == _otherUserId) {
+        setState(() => _isOtherUserOnline = status.isOnline);
       }
     });
   }
 
-  /// Cancel Socket.IO subscriptions
   void _cancelSocketListeners() {
     _messageSubscription?.cancel();
     _readReceiptSubscription?.cancel();
@@ -193,41 +182,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onTextChanged() {
-    final hasText = _messageController.text.trim().isNotEmpty;
     final socketService = context.read<SocketService>();
-
-    if (hasText && !_isTyping) {
+    if (_messageController.text.trim().isNotEmpty && !_isTyping) {
       setState(() => _isTyping = true);
-      // Send typing indicator
-      socketService.sendTypingIndicator(
-        matchId: widget.match.id,
-        isTyping: true,
-      );
+      socketService.sendTypingIndicator(matchId: _match!.id, isTyping: true);
     }
-
-    // Reset typing timer
     _typingTimer?.cancel();
     _typingTimer = Timer(_typingTimeout, () {
       if (mounted) {
         setState(() => _isTyping = false);
-        // Send stop typing indicator
-        socketService.sendTypingIndicator(
-          matchId: widget.match.id,
-          isTyping: false,
-        );
+        socketService.sendTypingIndicator(matchId: _match!.id, isTyping: false);
       }
     });
   }
 
-  /// Mark all messages in this chat as read
   Future<void> _markMessagesAsRead() async {
     if (_messages == null || _messages!.isEmpty) return;
-
     final socketService = context.read<SocketService>();
     if (!socketService.isConnected) return;
-
     try {
-      await socketService.markMessagesAsRead(matchId: widget.match.id);
+      await socketService.markMessagesAsRead(matchId: _match!.id);
     } catch (e) {
       debugPrint('Failed to mark messages as read: $e');
     }
@@ -235,300 +209,162 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   bool _isNearBottom() {
     if (!_scrollController.hasClients) return true;
-    final position = _scrollController.position;
-    const threshold = 100.0;
-    return position.maxScrollExtent - position.pixels < threshold;
+    return _scrollController.position.maxScrollExtent - _scrollController.position.pixels < 100.0;
   }
 
   void _scrollToBottom({bool animated = false}) {
     if (!_scrollController.hasClients) return;
-
+    final extent = _scrollController.position.maxScrollExtent;
     if (animated) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      _scrollController.animateTo(extent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     } else {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(extent);
     }
   }
 
   Future<void> _loadData() async {
+    if (_match == null) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final authService = context.read<AuthService>();
-      final chatService = context.read<ChatApiService>();
-      final profileService = context.read<ProfileApiService>();
-      final socketService = context.read<SocketService>();
       final currentUserId = authService.userId;
+      if (currentUserId == null) throw Exception('User not authenticated');
 
-      if (currentUserId == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Get the other user's ID
-      final otherUserId = widget.match.getOtherUserId(currentUserId);
+      final otherUserId = _match!.getOtherUserId(currentUserId);
       _otherUserId = otherUserId;
 
-      // Load messages and other user's profile in parallel
       final results = await Future.wait([
-        chatService.getMessages(widget.match.id),
-        profileService.getProfile(otherUserId),
+        context.read<ChatApiService>().getMessages(_match!.id),
+        context.read<ProfileApiService>().getProfile(otherUserId),
       ]);
 
       setState(() {
         _messages = results[0] as List<Message>;
         _otherUserProfile = results[1] as Profile;
-        _isLoading = false;
       });
 
-      // Get online status of the other user
+      final socketService = context.read<SocketService>();
       if (socketService.isConnected) {
         final statuses = await socketService.getOnlineStatus([otherUserId]);
         if (statuses.isNotEmpty && mounted) {
-          setState(() {
-            _isOtherUserOnline = statuses.first.isOnline;
-          });
+          setState(() => _isOtherUserOnline = statuses.first.isOnline);
         }
       }
-
-      // Mark messages as read
       _markMessagesAsRead();
-
-      // Scroll to bottom after messages are loaded
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load chat: $e';
-        _isLoading = false;
-      });
+      setState(() => _errorMessage = 'Failed to load chat: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _refreshMessages() async {
-    if (_isRefreshing) return;
-
+    if (_isRefreshing || _match == null) return;
     setState(() => _isRefreshing = true);
-
     try {
-      final chatService = context.read<ChatApiService>();
-      final messages = await chatService.getMessages(widget.match.id);
-
-      if (mounted) {
-        setState(() {
-          _messages = messages;
-          _isRefreshing = false;
-        });
-      }
+      final messages = await context.read<ChatApiService>().getMessages(_match!.id);
+      if (mounted) setState(() => _messages = messages);
     } catch (e) {
-      if (mounted) {
-        setState(() => _isRefreshing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to refresh: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to refresh: $e')));
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || text.length > _maxCharacters) return;
+    if (text.isEmpty || text.length > _maxCharacters || _match == null) return;
 
-    // Check demo mode limits
     final subscriptionService = context.read<SubscriptionService>();
     if (!subscriptionService.canSendMessage()) {
-      if (mounted) {
-        PremiumGateDialog.showMessagesLimitReached(context);
-      }
+      if (mounted) PremiumGateDialog.showMessagesLimitReached(context);
       return;
     }
 
     final authService = context.read<AuthService>();
-    final socketService = context.read<SocketService>();
     final currentUserId = authService.userId;
-
     if (currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User not authenticated')));
       return;
     }
 
-    // Create tempId here so it's available for queueing
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
-
-    // Check socket connection
-    if (!socketService.isConnected) {
-      // Queue message for later delivery (prevents message loss)
-      final queueService = context.read<MessageQueueService>();
-      await queueService.enqueue(QueuedMessage(
-        tempId: tempId,
-        matchId: widget.match.id,
-        text: text,
-        timestamp: DateTime.now(),
-      ));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Message queued. Will send when connected.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      // Clear input immediately for better UX
-      _messageController.clear();
-
-      // Add temp message to UI immediately to show it as pending/queued
-      final tempMessage = Message(
-        id: tempId,
-        matchId: widget.match.id,
-        senderId: currentUserId,
-        text: text,
-        timestamp: DateTime.now(),
-        status: MessageStatus.sending, // Will show spinner
-      );
-
-      setState(() {
-        _messages = [...(_messages ?? []), tempMessage];
-      });
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom(animated: true);
-      });
-
-      // Try to reconnect in background
-      socketService.connect();
-      return;
-    }
+    final socketService = context.read<SocketService>();
 
     final tempMessage = Message(
       id: tempId,
-      matchId: widget.match.id,
+      matchId: _match!.id,
       senderId: currentUserId,
       text: text,
       timestamp: DateTime.now(),
       status: MessageStatus.sending,
     );
 
-    // Add temp message to UI immediately
     setState(() {
       _messages = [...(_messages ?? []), tempMessage];
       _messageController.clear();
-      _isSending = true;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: true));
 
-    // Scroll to bottom
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom(animated: true);
-    });
+    if (!socketService.isConnected) {
+      final queueService = context.read<MessageQueueService>();
+      await queueService.enqueue(QueuedMessage(
+        tempId: tempId,
+        matchId: _match!.id,
+        text: text,
+        timestamp: DateTime.now(),
+      ));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Message queued. Will send when connected.'),
+        backgroundColor: Colors.orange,
+      ));
+      socketService.connect();
+      return;
+    }
 
     try {
-      // Send via Socket.IO
-      final sentMessage = await socketService.sendMessage(
-        matchId: widget.match.id,
-        text: text,
-        tempId: tempId,
-      );
-
-      if (sentMessage == null) {
-        throw Exception('Failed to send message');
-      }
-
-      // Use a message (increments counter for demo users)
+      final sentMessage = await socketService.sendMessage(matchId: _match!.id, text: text, tempId: tempId);
+      if (sentMessage == null) throw Exception('Failed to send message');
       await subscriptionService.useMessage();
-
-      // Replace temp message with real message
       if (mounted) {
         setState(() {
-          _messages = _messages!
-              .where((m) => m.id != tempId)
-              .toList()
-            ..add(sentMessage);
-          _isSending = false;
+          _messages = _messages!.where((m) => m.id != tempId).toList()..add(sentMessage);
         });
       }
     } catch (e) {
-      // Mark message as failed
       if (mounted) {
         setState(() {
-          _messages = _messages!.map((m) {
-            if (m.id == tempId) {
-              return m.copyWith(
-                status: MessageStatus.failed,
-                error: e.toString(),
-              );
-            }
-            return m;
-          }).toList();
-          _isSending = false;
+          _messages = _messages!.map((m) => m.id == tempId ? m.copyWith(status: MessageStatus.failed, error: e.toString()) : m).toList();
         });
       }
     }
   }
 
   Future<void> _retryMessage(Message failedMessage) async {
-    final authService = context.read<AuthService>();
     final socketService = context.read<SocketService>();
-    final currentUserId = authService.userId;
-
-    if (currentUserId == null) return;
-
-    // Update message status to sending
     setState(() {
       _messages = _messages!.map((m) {
-        if (m.id == failedMessage.id) {
-          return m.copyWith(status: MessageStatus.sending, error: null);
-        }
-        return m;
+        return m.id == failedMessage.id ? m.copyWith(status: MessageStatus.sending, error: null) : m;
       }).toList();
     });
 
     try {
-      // Retry via Socket.IO
-      final sentMessage = await socketService.sendMessage(
-        matchId: widget.match.id,
-        text: failedMessage.text,
-        tempId: failedMessage.id,
-      );
-
-      if (sentMessage == null) {
-        throw Exception('Failed to send message');
-      }
-
-      // Replace failed message with sent message
+      final sentMessage = await socketService.sendMessage(matchId: _match!.id, text: failedMessage.text, tempId: failedMessage.id);
+      if (sentMessage == null) throw Exception('Failed to send message');
       if (mounted) {
         setState(() {
-          _messages = _messages!
-              .where((m) => m.id != failedMessage.id)
-              .toList()
-            ..add(sentMessage);
+          _messages = _messages!.where((m) => m.id != failedMessage.id).toList()..add(sentMessage);
         });
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom(animated: true);
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: true));
       }
     } catch (e) {
-      // Mark as failed again
       if (mounted) {
         setState(() {
-          _messages = _messages!.map((m) {
-            if (m.id == failedMessage.id) {
-              return m.copyWith(
-                status: MessageStatus.failed,
-                error: e.toString(),
-              );
-            }
-            return m;
-          }).toList();
+          _messages = _messages!.map((m) => m.id == failedMessage.id ? m.copyWith(status: MessageStatus.failed, error: e.toString()) : m).toList();
         });
       }
     }
@@ -541,27 +377,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showUserActionSheet() {
-    if (_otherUserProfile == null) return;
-
+    if (_otherUserProfile == null || _match == null) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => UserActionSheet(
         otherUserProfile: _otherUserProfile!,
-        match: widget.match,
-        onActionComplete: () {
-          // Navigate back to matches screen after block/unmatch
-          Navigator.of(context).pop(); // Pop chat screen
-        },
+        match: _match!,
+        onActionComplete: () => Navigator.of(context).pop(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+    }
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(_errorMessage!, style: TextStyle(color: AppColors.error(context))),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _fetchMatchThenLoadData, child: const Text('Retry')),
+        ])),
+      );
+    }
+
     final authService = context.watch<AuthService>();
     final subscriptionService = context.watch<SubscriptionService>();
     final currentUserId = authService.userId;
@@ -577,11 +421,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: Hero(
-                  tag: 'profile_${widget.match.otherUser.userId}',
+                  tag: 'profile_${_otherUserId!}',
                   child: CircleAvatar(
                     radius: 18,
                     backgroundImage: CachedNetworkImageProvider(
-                      '${context.read<ProfileApiService>().baseUrl}${widget.match.otherUser.photos!.first}',
+                      '${context.read<ProfileApiService>().baseUrl}${_otherUserProfile!.photos!.first}',
                     ),
                   ),
                 ),
@@ -603,25 +447,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       color: messagesRemaining > 0 ? AppColors.success(context) : AppColors.error(context),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.chat,
-                        size: 16,
-                        color: messagesRemaining > 0 ? AppColors.success(context) : AppColors.error(context),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$messagesRemaining left',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: messagesRemaining > 0 ? AppColors.success(context) : AppColors.error(context),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.chat, size: 16, color: messagesRemaining > 0 ? AppColors.success(context) : AppColors.error(context)),
+                    const SizedBox(width: 4),
+                    Text('$messagesRemaining left', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: messagesRemaining > 0 ? AppColors.success(context) : AppColors.error(context))),
+                  ]),
                 ),
               ),
             ),
@@ -629,10 +459,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Center(
-                child: Text(
-                  '${_otherUserProfile!.age ?? '?'}',
-                  style: const TextStyle(fontSize: 16),
-                ),
+                child: Text('${_otherUserProfile!.age ?? '?'}', style: const TextStyle(fontSize: 16)),
               ),
             ),
           if (_otherUserProfile != null)
@@ -648,11 +475,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         behavior: HitTestBehavior.translucent,
         child: Column(
           children: [
-            // Messages list
-            Expanded(
-              child: _buildMessagesList(currentUserId),
-            ),
-            // Message input
+            Expanded(child: _buildMessagesList(currentUserId)),
             _buildMessageInput(),
           ],
         ),
@@ -661,63 +484,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMessagesList(String? currentUserId) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _errorMessage!,
-              style: TextStyle(fontSize: 16, color: AppColors.error(context)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
     if (_messages == null || _messages!.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 80,
-              color: AppColors.textDisabled(context),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No messages yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Say hi to ${_otherUserProfile?.name ?? 'your match'}!',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textDisabled(context),
-              ),
-            ),
-          ],
-        ),
-      );
+      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.chat_bubble_outline, size: 80, color: AppColors.textDisabled(context)),
+        const SizedBox(height: 16),
+        Text('No messages yet', style: TextStyle(fontSize: 18, color: AppColors.textSecondary(context))),
+        const SizedBox(height: 8),
+        Text('Say hi to ${_otherUserProfile?.name ?? 'your match'}!', style: TextStyle(fontSize: 14, color: AppColors.textDisabled(context))),
+      ]));
     }
-
     return RefreshIndicator(
       onRefresh: _refreshMessages,
       child: ListView.builder(
@@ -725,34 +500,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         padding: const EdgeInsets.all(16),
         itemCount: _messages!.length + (_otherUserTyping ? 1 : 0),
         itemBuilder: (context, index) {
-          // Show typing indicator as last item
           if (_otherUserTyping && index == _messages!.length) {
             return Align(
               alignment: Alignment.centerLeft,
               child: Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.typingIndicatorBackground(context),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '...',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.typingIndicatorDots(context),
-                    letterSpacing: 2,
-                  ),
-                ),
+                decoration: BoxDecoration(color: AppColors.typingIndicatorBackground(context), borderRadius: BorderRadius.circular(20)),
+                child: Text('...', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.typingIndicatorDots(context), letterSpacing: 2)),
               ),
             );
           }
-
           final message = _messages![index];
-          final isCurrentUser = message.senderId == currentUserId;
-
-          return _buildMessageBubble(message, isCurrentUser);
+          return _buildMessageBubble(message, message.senderId == currentUserId);
         },
       ),
     );
@@ -760,142 +520,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildMessageBubble(Message message, bool isCurrentUser) {
     final isFailed = message.status == MessageStatus.failed;
-
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // Retry button for failed messages
-            if (isCurrentUser && isFailed) ...[
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                color: AppColors.error(context),
-                onPressed: () => _retryMessage(message),
-                tooltip: 'Retry',
-              ),
-              const SizedBox(width: 4),
-            ],
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.7,
-                ),
-                decoration: BoxDecoration(
-                  color: isFailed
-                      ? AppColors.error(context).withOpacity(0.1)
-                      : (isCurrentUser
-                          ? AppColors.messageBubbleSent(context)
-                          : AppColors.messageBubbleReceived(context)),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      message.text,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: isFailed
-                            ? AppColors.error(context)
-                            : (isCurrentUser
-                                ? AppColors.messageBubbleTextSent(context)
-                                : AppColors.messageBubbleTextReceived(context)),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          formatTimestamp(message.timestamp),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isFailed
-                                ? AppColors.error(context).withOpacity(0.8)
-                                : (isCurrentUser
-                                    ? AppColors.messageTimestampSent(context)
-                                    : AppColors.messageTimestampReceived(context)),
-                          ),
-                        ),
-                        if (isCurrentUser && !isFailed) ...[
-                          const SizedBox(width: 4),
-                          _buildMessageStatusIcon(message.status),
-                        ],
-                      ],
-                    ),
-                    if (isFailed) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Failed to send',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.error(context),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            // Delete button for failed messages
-            if (isCurrentUser && isFailed) ...[
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                color: AppColors.error(context),
-                onPressed: () => _deleteFailedMessage(message),
-                tooltip: 'Delete',
-              ),
-            ],
+        child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          if (isCurrentUser && isFailed) ...[
+            IconButton(icon: const Icon(Icons.refresh, size: 20), color: AppColors.error(context), onPressed: () => _retryMessage(message), tooltip: 'Retry'),
+            const SizedBox(width: 4),
           ],
-        ),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+              decoration: BoxDecoration(
+                color: isFailed ? AppColors.error(context).withOpacity(0.1) : (isCurrentUser ? AppColors.messageBubbleSent(context) : AppColors.messageBubbleReceived(context)),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(message.text, style: TextStyle(fontSize: 16, color: isFailed ? AppColors.error(context) : (isCurrentUser ? AppColors.messageBubbleTextSent(context) : AppColors.messageBubbleTextReceived(context)))),
+                const SizedBox(height: 4),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(formatTimestamp(message.timestamp), style: TextStyle(fontSize: 11, color: isFailed ? AppColors.error(context).withOpacity(0.8) : (isCurrentUser ? AppColors.messageTimestampSent(context) : AppColors.messageTimestampReceived(context)))),
+                  if (isCurrentUser && !isFailed) ...[const SizedBox(width: 4), _buildMessageStatusIcon(message.status)],
+                ]),
+                if (isFailed) ...[
+                  const SizedBox(height: 4),
+                  Text('Failed to send', style: TextStyle(fontSize: 11, color: AppColors.error(context), fontWeight: FontWeight.bold)),
+                ],
+              ]),
+            ),
+          ),
+          if (isCurrentUser && isFailed) ...[
+            const SizedBox(width: 4),
+            IconButton(icon: const Icon(Icons.close, size: 20), color: AppColors.error(context), onPressed: () => _deleteFailedMessage(message), tooltip: 'Delete'),
+          ],
+        ]),
       ),
     );
   }
 
   Widget _buildMessageStatusIcon(MessageStatus status) {
     switch (status) {
-      case MessageStatus.sending:
-        return SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              AppColors.messageTimestampSent(context),
-            ),
-          ),
-        );
-      case MessageStatus.sent:
-        return Icon(
-          Icons.check,
-          size: 14,
-          color: AppColors.messageTimestampSent(context),
-        );
-      case MessageStatus.delivered:
-        return Icon(
-          Icons.done_all,
-          size: 14,
-          color: AppColors.messageTimestampSent(context),
-        );
-      case MessageStatus.read:
-        return const Icon(
-          Icons.done_all,
-          size: 14,
-          color: Colors.blue, // Keep blue for read status
-        );
-      case MessageStatus.failed:
-        return Icon(
-          Icons.error_outline,
-          size: 14,
-          color: AppColors.error(context),
-        );
+      case MessageStatus.sending: return SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(AppColors.messageTimestampSent(context))));
+      case MessageStatus.sent: return Icon(Icons.check, size: 14, color: AppColors.messageTimestampSent(context));
+      case MessageStatus.delivered: return Icon(Icons.done_all, size: 14, color: AppColors.messageTimestampSent(context));
+      case MessageStatus.read: return const Icon(Icons.done_all, size: 14, color: Colors.blue);
+      case MessageStatus.failed: return Icon(Icons.error_outline, size: 14, color: AppColors.error(context));
     }
   }
 
@@ -903,87 +574,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final charCount = _messageController.text.length;
     final isOverLimit = charCount > _maxCharacters;
     final showCounter = charCount > _maxCharacters * 0.8;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface(context),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.border(context).withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, -1),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: AppColors.surface(context), boxShadow: [BoxShadow(color: AppColors.border(context).withOpacity(0.1), spreadRadius: 1, blurRadius: 3, offset: const Offset(0, -1))]),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Character counter
-            if (showCounter)
-              Padding(
-                padding: const EdgeInsets.only(right: 16, bottom: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$charCount/$_maxCharacters',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isOverLimit ? AppColors.error(context) : AppColors.textSecondary(context),
-                        fontWeight: isOverLimit ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // Input row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: TextStyle(color: AppColors.textPrimary(context)),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: TextStyle(color: AppColors.textDisabled(context)),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.inputBackground(context),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                    ),
-                    maxLines: null,
-                    maxLength: null,
-                    textCapitalization: TextCapitalization.sentences,
-                    onSubmitted: (_) => _sendMessage(),
-                    textInputAction: TextInputAction.send,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _sendMessage,
-                  icon: _isSending
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
-                  color: AppColors.primaryLight, // Keep brand color for action
-                  iconSize: 28,
-                ),
-              ],
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (showCounter)
+            Padding(
+              padding: const EdgeInsets.only(right: 16, bottom: 4),
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                Text('$charCount/$_maxCharacters', style: TextStyle(fontSize: 12, color: isOverLimit ? AppColors.error(context) : AppColors.textSecondary(context), fontWeight: isOverLimit ? FontWeight.bold : FontWeight.normal)),
+              ]),
             ),
-          ],
-        ),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                style: TextStyle(color: AppColors.textPrimary(context)),
+                decoration: InputDecoration(
+                  hintText: 'Type a message...',
+                  hintStyle: TextStyle(color: AppColors.textDisabled(context)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
+                  filled: true,
+                  fillColor: AppColors.inputBackground(context),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => _sendMessage(),
+                textInputAction: TextInputAction.send,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _sendMessage,
+              icon: _isSending ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
+              color: AppColors.primaryLight,
+              iconSize: 28,
+            ),
+          ]),
+        ]),
       ),
     );
   }

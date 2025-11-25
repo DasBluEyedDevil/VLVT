@@ -119,13 +119,13 @@ class AppTextStyles {
       );
 
   static TextStyle secondaryText(Color color) => TextStyle(
-        color: color.withOpacity(0.7),
+        color: color.withAlpha(179),
         fontSize: 14,
         fontWeight: FontWeight.normal,
       );
 
   static TextStyle hintText(Color color) => TextStyle(
-        color: color.withOpacity(0.5),
+        color: color.withAlpha(128),
         fontSize: 14,
         fontWeight: FontWeight.normal,
       );
@@ -166,10 +166,22 @@ class AppColors {
   static const Color accent = Color(0xFFE91E63);
 
   // Semantic colors
-  static const Color success = Colors.green;
-  static const Color error = Colors.red;
-  static const Color warning = Colors.orange;
-  static const Color info = Colors.blue;
+  static Color success(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.green.shade200
+          : Colors.green.shade700;
+  static Color error(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.red.shade200
+          : Colors.red.shade700;
+  static Color warning(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.orange.shade200
+          : Colors.orange.shade700;
+  static Color info(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.blue.shade200
+          : Colors.blue.shade700;
 
   // Neutral colors
   static const Color background = Color(0xFFFAFAFA);

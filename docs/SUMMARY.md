@@ -144,7 +144,7 @@ See [SECURITY.md](SECURITY.md) for complete security checklist including:
 
 | Document | Purpose |
 |----------|---------|
-| [README.md](../README.md) | Project overview and quick start guide |
+| [README.md](README.md) | Project overview and quick start guide |
 | [SETUP.md](SETUP.md) | Detailed setup instructions for dev and prod |
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | Technical implementation details |
 | [SECURITY.md](SECURITY.md) | Security considerations and checklist |

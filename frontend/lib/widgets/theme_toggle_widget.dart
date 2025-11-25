@@ -56,40 +56,58 @@ class ThemeToggleWidget extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RadioListTile<ThemeMode>(
+            ListTile(
               title: const Text('Light'),
               subtitle: const Text('Always use light theme'),
-              value: ThemeMode.light,
-              groupValue: themeService.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeService.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
+              leading: Radio<ThemeMode>(
+                value: ThemeMode.light,
+                groupValue: themeService.themeMode,
+                onChanged: (value) {
+                  if (value != null) {
+                    themeService.setThemeMode(value);
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              onTap: () {
+                themeService.setThemeMode(ThemeMode.light);
+                Navigator.of(context).pop();
               },
             ),
-            RadioListTile<ThemeMode>(
+            ListTile(
               title: const Text('Dark'),
               subtitle: const Text('Always use dark theme'),
-              value: ThemeMode.dark,
-              groupValue: themeService.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeService.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
+              leading: Radio<ThemeMode>(
+                value: ThemeMode.dark,
+                groupValue: themeService.themeMode,
+                onChanged: (value) {
+                  if (value != null) {
+                    themeService.setThemeMode(value);
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              onTap: () {
+                themeService.setThemeMode(ThemeMode.dark);
+                Navigator.of(context).pop();
               },
             ),
-            RadioListTile<ThemeMode>(
+            ListTile(
               title: const Text('System'),
               subtitle: const Text('Follow system theme'),
-              value: ThemeMode.system,
-              groupValue: themeService.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeService.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
+              leading: Radio<ThemeMode>(
+                value: ThemeMode.system,
+                groupValue: themeService.themeMode,
+                onChanged: (value) {
+                  if (value != null) {
+                    themeService.setThemeMode(value);
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              onTap: () {
+                themeService.setThemeMode(ThemeMode.system);
+                Navigator.of(context).pop();
               },
             ),
           ],

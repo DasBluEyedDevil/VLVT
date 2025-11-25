@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service for managing app theme (light/dark mode)
 class ThemeService extends ChangeNotifier {
@@ -77,7 +77,7 @@ class AppThemes {
   AppThemes._();
 
   /// Primary color used throughout the app
-  static const Color primaryColor = Colors.deepPurple;
+  static const MaterialColor primaryColor = Colors.deepPurple;
 
   /// Light theme
   static ThemeData lightTheme = ThemeData(
@@ -90,20 +90,12 @@ class AppThemes {
     scaffoldBackgroundColor: Colors.grey[50],
 
     // AppBar theme
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: true,
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,
-      iconTheme: const IconThemeData(color: Colors.white),
-    ),
-
-    // Card theme
-    cardTheme: CardTheme(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      iconTheme: IconThemeData(color: Colors.white),
     ),
 
     // FloatingActionButton theme
@@ -154,12 +146,6 @@ class AppThemes {
       ),
     ),
 
-    // Dialog theme
-    dialogTheme: DialogTheme(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
   );
 
   /// Dark theme
@@ -173,21 +159,12 @@ class AppThemes {
     scaffoldBackgroundColor: const Color(0xFF121212),
 
     // AppBar theme
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: true,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: Color(0xFF1E1E1E),
       foregroundColor: Colors.white,
-      iconTheme: const IconThemeData(color: Colors.white),
-    ),
-
-    // Card theme
-    cardTheme: CardTheme(
-      elevation: 4,
-      color: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      iconTheme: IconThemeData(color: Colors.white),
     ),
 
     // FloatingActionButton theme
@@ -235,14 +212,6 @@ class AppThemes {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-      ),
-    ),
-
-    // Dialog theme
-    dialogTheme: DialogTheme(
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
       ),
     ),
 

@@ -29,6 +29,9 @@ class ConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final destructiveColor = AppColors.error(context);
+    final warningColor = AppColors.warning(context);
+
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: Spacing.borderRadiusLg,
@@ -38,7 +41,7 @@ class ConfirmationDialog extends StatelessWidget {
           if (icon != null) ...[
             Icon(
               icon,
-              color: isDestructive ? AppColors.error : AppColors.primary,
+              color: isDestructive ? destructiveColor : AppColors.primary,
               size: 28,
             ),
             Spacing.horizontalMd,
@@ -65,13 +68,13 @@ class ConfirmationDialog extends StatelessWidget {
               padding: Spacing.paddingMd,
               decoration: BoxDecoration(
                 color: isDestructive
-                    ? AppColors.error.withOpacity(0.1)
-                    : AppColors.warning.withOpacity(0.1),
+                    ? destructiveColor.withValues(alpha: 26 / 255)
+                    : warningColor.withValues(alpha: 26 / 255),
                 borderRadius: Spacing.borderRadiusSm,
                 border: Border.all(
                   color: isDestructive
-                      ? AppColors.error.withOpacity(0.3)
-                      : AppColors.warning.withOpacity(0.3),
+                      ? destructiveColor.withValues(alpha: 77 / 255)
+                      : warningColor.withValues(alpha: 77 / 255),
                 ),
               ),
               child: Row(
@@ -79,7 +82,7 @@ class ConfirmationDialog extends StatelessWidget {
                   Icon(
                     Icons.info_outline,
                     size: 20,
-                    color: isDestructive ? AppColors.error : AppColors.warning,
+                    color: isDestructive ? destructiveColor : warningColor,
                   ),
                   Spacing.horizontalSm,
                   Expanded(
@@ -87,8 +90,8 @@ class ConfirmationDialog extends StatelessWidget {
                       consequences!,
                       style: AppTextStyles.bodySmall.copyWith(
                         color: isDestructive
-                            ? AppColors.error
-                            : AppColors.warning,
+                            ? destructiveColor
+                            : warningColor,
                       ),
                     ),
                   ),
@@ -124,7 +127,7 @@ class ConfirmationDialog extends StatelessWidget {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor:
-                isDestructive ? AppColors.error : AppColors.primary,
+                isDestructive ? destructiveColor : AppColors.primary,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(

@@ -115,7 +115,7 @@ class _MatchOverlayState extends State<MatchOverlay>
                 boxShadow: [
                   BoxShadow(
                     color: (widget.isNewMatch ? Colors.pink : Colors.orange)
-                        .withOpacity(0.5),
+                        .withAlpha(128),
                     blurRadius: 30,
                     spreadRadius: 5,
                   ),

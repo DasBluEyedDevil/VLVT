@@ -7,7 +7,6 @@ import '../services/auth_service.dart';
 import '../constants/spacing.dart';
 import '../constants/text_styles.dart';
 import '../utils/error_handler.dart';
-import '../config/app_colors.dart';
 import 'test_login_screen.dart';
 import 'legal_document_viewer.dart';
 
@@ -160,8 +159,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     ? AppColors.primaryDark
                     : AppColors.primaryLight,
                 Theme.of(context).brightness == Brightness.dark
-                    ? AppColors.primaryDark.withOpacity(0.7)
-                    : AppColors.primaryLight.withOpacity(0.7),
+                    ? AppColors.primaryDark.withValues(alpha: 0.7)
+                    : AppColors.primaryLight.withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -180,7 +179,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                       Container(
                         padding: Spacing.paddingXl,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -203,7 +202,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                         'Straightforward dating, no BS',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.h4.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontWeight: FontWeight.normal,
                         ),
                       ),
@@ -215,7 +214,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           'Find meaningful connections without the games',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyMedium.copyWith(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -226,7 +225,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           child: Container(
                             padding: Spacing.paddingXl,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: Spacing.borderRadiusLg,
                             ),
                             child: Column(
@@ -273,7 +272,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             textAlign: TextAlign.center,
                             text: TextSpan(
                               style: AppTextStyles.caption.copyWith(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                               ),
                               children: [
                                 const TextSpan(text: 'By signing in, you agree to our '),
@@ -334,7 +333,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             label: const Text('Test Users (Dev Only)'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white, width: 2),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.8), width: 2),
                               padding: Spacing.paddingMd,
                             ),
                           ),
@@ -371,7 +370,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
           borderRadius: Spacing.borderRadiusMd,
         ),
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.3),
+        shadowColor: Colors.black.withValues(alpha: 0.3),
         textStyle: AppTextStyles.button,
       ),
     );

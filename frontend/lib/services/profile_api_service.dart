@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:http_parser/http_parser.dart';
 import '../config/app_config.dart';
 import '../models/profile.dart';
@@ -251,7 +251,6 @@ class ProfileApiService extends ChangeNotifier {
       request.headers['Authorization'] = 'Bearer $token';
 
       // Add file
-      final file = File(imagePath);
       final fileName = imagePath.split('/').last;
       final mimeType = _getMimeType(fileName);
 

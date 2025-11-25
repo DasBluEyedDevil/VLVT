@@ -28,7 +28,7 @@ class AppColors {
   /// Message bubble background for received messages (other user)
   static Color messageBubbleReceived(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).colorScheme.surfaceVariant
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
         : Colors.grey[200]!;
   }
 
@@ -47,13 +47,13 @@ class AppColors {
   /// Timestamp text color for sent messages
   static Color messageTimestampSent(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white.withOpacity(0.7)
-        : Colors.white.withOpacity(0.7);
+        ? Colors.white.withAlpha(179)
+        : Colors.white.withAlpha(179);
   }
 
   /// Timestamp text color for received messages
   static Color messageTimestampReceived(BuildContext context) {
-    return Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6);
+    return Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(153);
   }
 
   // ===== STATUS & INDICATOR COLORS =====
@@ -100,7 +100,7 @@ class AppColors {
 
   /// Disabled/hint text color
   static Color textDisabled(BuildContext context) {
-    return Theme.of(context).colorScheme.onSurface.withOpacity(0.38);
+    return Theme.of(context).colorScheme.onSurface.withAlpha(97);
   }
 
   // ===== BACKGROUND COLORS =====
@@ -113,14 +113,14 @@ class AppColors {
   /// Elevated surface (slightly lighter/darker than surface)
   static Color surfaceElevated(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).colorScheme.surface.withOpacity(0.95)
+        ? Theme.of(context).colorScheme.surface.withAlpha(242)
         : Colors.white;
   }
 
   /// Input field background
   static Color inputBackground(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).colorScheme.surfaceVariant
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
         : Colors.grey[200]!;
   }
 
@@ -129,8 +129,8 @@ class AppColors {
   /// Default border color
   static Color border(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white.withOpacity(0.12)
-        : Colors.black.withOpacity(0.12);
+        ? Colors.white.withAlpha(31)
+        : Colors.black.withAlpha(31);
   }
 
   /// Divider color
@@ -147,7 +147,7 @@ class AppColors {
 
   /// Typing indicator dots color
   static Color typingIndicatorDots(BuildContext context) {
-    return Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6);
+    return Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(153);
   }
 
   // ===== SUBSCRIPTION/PREMIUM =====

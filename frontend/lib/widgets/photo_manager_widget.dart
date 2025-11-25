@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
+
 import '../services/profile_api_service.dart';
-import '../services/auth_service.dart';
+
 
 /// Simplified Photo Manager Widget for Profile Photos
 /// Displays up to 6 photos in a grid with upload/delete functionality
@@ -44,6 +44,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
       );
 
       if (image == null) return;
+      if (!mounted) return;
 
       setState(() => _isUploading = true);
 
@@ -98,6 +99,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     // Optimistic UI: Remove photo immediately
     final deletedPhoto = photoUrl;
@@ -214,9 +216,9 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
                   ),
                   child: _isUploading
                       ? const Center(child: CircularProgressIndicator())
-                      : Column(
+                      : const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.add_photo_alternate, size: 32, color: Colors.grey),
                             SizedBox(height: 4),
                             Text('Add Photo', style: TextStyle(fontSize: 10, color: Colors.grey)),
@@ -298,8 +300,8 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.orange, width: 2),
             ),
-            child: Row(
-              children: const [
+            child: const Row(
+              children: [
                 Icon(Icons.warning_amber, color: Colors.orange),
                 SizedBox(width: 12),
                 Expanded(

@@ -369,7 +369,7 @@ Create a `.env` file in the project root and set `JWT_SECRET=your-secret-here`
 
 For issues or questions:
 - Check the [IMPLEMENTATION.md](IMPLEMENTATION.md) for technical details
-- Review the [README.md](../README.md) for API documentation
+- Review the [README.md](README.md) for API documentation
 - File an issue on GitHub
 
 ## Security Checklist

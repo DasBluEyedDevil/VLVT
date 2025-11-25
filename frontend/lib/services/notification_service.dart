@@ -100,12 +100,9 @@ class NotificationService {
 
     // iOS settings
     final iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false, // Will request explicitly
+      requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
-      onDidReceiveLocalNotification: (id, title, body, payload) async {
-        // Handle iOS foreground notification (for older iOS versions)
-      },
     );
 
     final initSettings = InitializationSettings(
@@ -256,7 +253,6 @@ class NotificationService {
 
     // Show local notification
     final notification = message.notification;
-    final android = message.notification?.android;
 
     if (notification != null) {
       final channelId = message.data['type'] == 'match' ? 'matches' : 'messages';

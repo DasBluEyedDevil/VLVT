@@ -175,4 +175,22 @@ class AuthService extends ChangeNotifier {
     _isAuthenticated = true;
     notifyListeners();
   }
+
+  /// Backwards-compatible helper to get the current JWT token.
+  /// Falls back to secure storage if the in-memory token is null.
+  Future<String?> getToken() async {
+    if (_token != null) return _token;
+    _token = await _storage.read(key: 'auth_token');
+    return _token;
+  }
+
+  /// Backwards-compatible helper used by services that only need to know
+  /// whether a user is currently logged in.
+  /// Returns a minimal user map containing the userId, or null if not logged in.
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    var currentUserId = _userId;
+    currentUserId ??= await _storage.read(key: 'user_id');
+    if (currentUserId == null) return null;
+    return {'userId': currentUserId};
+  }
 }

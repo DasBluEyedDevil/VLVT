@@ -24,7 +24,7 @@ class OfflineBanner extends StatelessWidget {
       curve: Curves.easeInOut,
       height: isOffline ? 48 : 0,
       child: Material(
-        color: AppColors.error,
+        color: AppColors.error(context),
         child: SafeArea(
           bottom: false,
           child: Container(
@@ -108,6 +108,7 @@ class _OfflineWrapperState extends State<OfflineWrapper> {
   }
 
   void _updateConnectionStatus(List<ConnectivityResult> results) {
+    final wasOffline = _isOffline;
     final isOffline = results.isEmpty ||
         results.every((result) => result == ConnectivityResult.none);
 
@@ -117,18 +118,18 @@ class _OfflineWrapperState extends State<OfflineWrapper> {
       });
 
       // Show snackbar when connection is restored
-      if (!isOffline && _isOffline) {
+      if (wasOffline && !isOffline) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
+          SnackBar(
+            content: const Row(
               children: [
                 Icon(Icons.cloud_done, color: Colors.white),
                 SizedBox(width: 8),
                 Text('Back online'),
               ],
             ),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.success(context),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -234,7 +235,7 @@ class ConnectivityChecker {
               Text('No internet connection'),
             ],
           ),
-          backgroundColor: AppColors.error,
+          backgroundColor: AppColors.error(context),
           action: SnackBarAction(
             label: 'Dismiss',
             textColor: Colors.white,

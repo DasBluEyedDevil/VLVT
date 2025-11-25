@@ -81,7 +81,7 @@ void _handleNotificationTap(Map<String, dynamic> data) {
     if (matchId != null) {
       navigatorKey.currentState?.push(
         MaterialPageRoute(
-          builder: (context) => ChatScreen(matchId: matchId),
+          builder: (context) => ChatScreen(match: null, matchId: matchId),
         ),
       );
     }
@@ -157,7 +157,7 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
-    
+
     if (authService.isAuthenticated) {
       return const MainScreen();
     } else {
