@@ -15,9 +15,6 @@ class UpgradeBanner extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final likesRemaining = subscriptionService.getLikesRemaining();
-    final messagesRemaining = subscriptionService.getMessagesRemaining();
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -39,18 +36,18 @@ class UpgradeBanner extends StatelessWidget {
           child: Row(
             children: [
               const Icon(
-                Icons.star,
+                Icons.lock_outline,
                 color: Colors.amber,
                 size: 24,
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Preview Mode',
+                    Text(
+                      'Subscribe to Connect',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -58,8 +55,8 @@ class UpgradeBanner extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$likesRemaining likes, $messagesRemaining messages left today',
-                      style: const TextStyle(
+                      'Unlock swiping, matching & messaging',
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
                       ),
@@ -68,12 +65,8 @@ class UpgradeBanner extends StatelessWidget {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const PaywallScreen(showBackButton: true),
-                    ),
-                  );
+                onPressed: () async {
+                  await PaywallScreen.show(context, source: 'upgrade_banner');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
@@ -84,7 +77,7 @@ class UpgradeBanner extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Upgrade',
+                  'Subscribe',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,

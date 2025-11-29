@@ -359,6 +359,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
 
   // Swipe gesture handlers
   void _onPanStart(DragStartDetails details) {
+    // Block swiping for non-premium users
+    final subscriptionService = context.read<SubscriptionService>();
+    if (!subscriptionService.hasPremiumAccess) {
+      HapticFeedback.heavyImpact();
+      PremiumGateDialog.showSwipingRequired(context);
+      return;
+    }
+
     HapticFeedback.selectionClick();
     setState(() {
       _isDragging = true;
@@ -366,6 +374,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
+    // Ignore if not dragging (blocked for non-premium)
+    if (!_isDragging) return;
+
     setState(() {
       _cardPosition += details.delta;
 
@@ -375,6 +386,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // Ignore if not dragging (blocked for non-premium)
+    if (!_isDragging) return;
+
     final screenWidth = MediaQuery.of(context).size.width;
     final threshold = screenWidth * 0.3; // 30% of screen width
 
@@ -1158,6 +1172,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                           heroTag: 'pass',
                           mini: true,
                           onPressed: () {
+                            final subService = context.read<SubscriptionService>();
+                            if (!subService.hasPremiumAccess) {
+                              HapticFeedback.heavyImpact();
+                              PremiumGateDialog.showSwipingRequired(context);
+                              return;
+                            }
                             HapticFeedback.lightImpact();
                             _onPass();
                           },
@@ -1183,6 +1203,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                           heroTag: 'like',
                           mini: true,
                           onPressed: () {
+                            final subService = context.read<SubscriptionService>();
+                            if (!subService.hasPremiumAccess) {
+                              HapticFeedback.heavyImpact();
+                              PremiumGateDialog.showSwipingRequired(context);
+                              return;
+                            }
                             HapticFeedback.mediumImpact();
                             _onLike();
                           },
