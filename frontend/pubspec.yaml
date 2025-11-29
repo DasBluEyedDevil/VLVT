@@ -26,7 +26,7 @@ dependencies:
   google_sign_in: ^7.2.0
   
   # RevenueCat SDK for subscriptions
-  purchases_flutter: ^9.9.8
+  purchases_flutter: ^9.9.9
   
   # Secure storage for tokens
   flutter_secure_storage: ^9.2.2
@@ -70,6 +70,7 @@ dependencies:
   url_launcher: ^6.3.0
 
   flutter_markdown: any
+  purchases_ui_flutter: ^9.9.9
 dev_dependencies:
   flutter_test:
     sdk: flutter

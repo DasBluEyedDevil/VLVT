@@ -88,13 +88,10 @@ class PremiumGateDialog extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const PaywallScreen(showBackButton: true),
-                    ),
-                  );
+                  // Use RevenueCat's native paywall if configured, otherwise fallback to custom
+                  await PaywallScreen.show(context, source: 'premium_gate');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,

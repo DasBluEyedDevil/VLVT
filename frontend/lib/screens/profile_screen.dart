@@ -191,6 +191,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: subscriptionService.hasPremiumAccess
+                                  ? OutlinedButton.icon(
+                                      onPressed: () {
+                                        subscriptionService.presentCustomerCenter(context);
+                                      },
+                                      icon: const Icon(Icons.settings),
+                                      label: const Text('Manage Subscription'),
+                                    )
+                                  : ElevatedButton.icon(
+                                      onPressed: () async {
+                                        await subscriptionService.presentPaywallIfNeeded();
+                                      },
+                                      icon: const Icon(Icons.star),
+                                      label: const Text('Upgrade to Premium'),
+                                    ),
+                            ),
+                            if (!subscriptionService.hasPremiumAccess) ...[
+                              const SizedBox(height: 8),
+                              Center(
+                                child: TextButton(
+                                  onPressed: () async {
+                                    final restored = await subscriptionService.restorePurchases();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(restored
+                                              ? 'Purchases restored successfully!'
+                                              : 'No purchases to restore'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Restore Purchases'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
