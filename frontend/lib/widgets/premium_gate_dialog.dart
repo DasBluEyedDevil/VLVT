@@ -134,9 +134,9 @@ class PremiumGateDialog extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => const PremiumGateDialog(
-        title: 'Daily Like Limit Reached',
-        message: 'You\'ve used all 5 likes for today in preview mode.',
-        benefit: 'Premium members get unlimited likes every day!',
+        title: 'Premium Required',
+        message: 'Subscribe to start liking profiles and making connections.',
+        benefit: 'Unlimited likes to find your perfect match!',
         icon: Icons.favorite,
       ),
     );
@@ -146,10 +146,22 @@ class PremiumGateDialog extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => const PremiumGateDialog(
-        title: 'Message Limit Reached',
-        message: 'You\'ve reached your daily message limit in preview mode.',
-        benefit: 'Premium members can send unlimited messages!',
+        title: 'Premium Required',
+        message: 'Subscribe to send messages and chat with your matches.',
+        benefit: 'Unlimited messaging with all your matches!',
         icon: Icons.chat,
+      ),
+    );
+  }
+
+  static void showSwipingRequired(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const PremiumGateDialog(
+        title: 'Premium Required',
+        message: 'Subscribe to swipe on profiles and find your matches.',
+        benefit: 'Unlimited swiping to discover compatible people!',
+        icon: Icons.swipe,
       ),
     );
   }

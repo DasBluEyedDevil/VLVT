@@ -195,38 +195,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                   child: const Text(
-                    'Start Free Trial',
+                    'Subscribe Now',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (!widget.showBackButton)
-                  OutlinedButton(
-                    onPressed: () {
-                      subscriptionService.enableDemoMode();
-                      Navigator.of(context).pop();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide(
-                        color: isDark ? AppColors.primaryDark : AppColors.primaryLight,
-                      ),
-                    ),
-                    child: Text(
-                      'Continue with Limited Access',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.primaryDark : AppColors.primaryLight,
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: () async {
@@ -577,31 +552,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              if (!widget.showBackButton)
-                OutlinedButton(
-                  onPressed: () {
-                    subscriptionService.enableDemoMode();
-                    Navigator.of(context).pop();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(
-                      color: isDark ? AppColors.primaryDark : AppColors.primaryLight,
-                    ),
-                  ),
-                  child: Text(
-                    'Continue with Limited Access',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? AppColors.primaryDark : AppColors.primaryLight,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
