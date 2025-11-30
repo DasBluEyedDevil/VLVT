@@ -59,10 +59,10 @@ class AppConfig {
   /// For local development, the app automatically uses localhost URLs when
   /// running in debug mode (see getters below).
 
-  // Production URLs - Railway deployment (configured 2025-11-13)
-  static const String _prodAuthServiceUrl = 'https://nobsdatingauth.up.railway.app';
-  static const String _prodProfileServiceUrl = 'https://nobsdatingprofiles.up.railway.app';
-  static const String _prodChatServiceUrl = 'https://nobsdatingchat.up.railway.app';
+  // Production URLs - Railway deployment (updated 2025-11-30)
+  static const String _prodAuthServiceUrl = 'https://vlvtauth.up.railway.app';
+  static const String _prodProfileServiceUrl = 'https://vlvtprofiles.up.railway.app';
+  static const String _prodChatServiceUrl = 'https://vlvtchat.up.railway.app';
 
   /// Auth Service URL with local development fallback
   ///

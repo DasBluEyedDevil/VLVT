@@ -6,12 +6,14 @@
   "scripts": {
     "seed": "node seed.js",
     "seed:clean": "node seed.js --clean",
-    "clean": "node seed.js --clean-only"
+    "clean": "node seed.js --clean-only",
+    "add-reviewer": "node add-reviewer.js"
   },
   "keywords": ["database", "seeding", "testing"],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "pg": "^8.11.0"
   }
 }
