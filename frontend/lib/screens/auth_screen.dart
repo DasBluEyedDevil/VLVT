@@ -9,6 +9,8 @@ import '../constants/text_styles.dart';
 import '../utils/error_handler.dart';
 import 'test_login_screen.dart';
 import 'legal_document_viewer.dart';
+import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -437,10 +439,10 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                 children: [
                                   TextButton(
                                     onPressed: () {
-                                      // TODO: Navigate to ForgotPasswordScreen
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Forgot password screen - coming soon'),
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const ForgotPasswordScreen(),
                                         ),
                                       );
                                     },
@@ -454,10 +456,10 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      // TODO: Navigate to RegisterScreen
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Registration screen - coming soon'),
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const RegisterScreen(),
                                         ),
                                       );
                                     },
