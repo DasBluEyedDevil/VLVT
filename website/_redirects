@@ -1,6 +1,0 @@
-# Redirects (301 = permanent redirect)
-/privacy    /privacy.html    301
-/terms      /terms.html      301
-/support    /support.html    301
-/delete     /delete-account.html    301
-/delete-account    /delete-account.html    301
