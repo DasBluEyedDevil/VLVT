@@ -22,6 +22,9 @@ import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
 import logger from './utils/logger';
 import { authLimiter, verifyLimiter, generalLimiter } from './middleware/rate-limiter';
+import { generateVerificationToken, generateResetToken, isTokenExpired } from './utils/crypto';
+import { validatePassword, hashPassword, verifyPassword } from './utils/password';
+import emailService from './services/email-service';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -214,15 +217,99 @@ app.post('/auth/google', authLimiter, async (req: Request, res: Response) => {
 app.post('/auth/verify', verifyLimiter, (req: Request, res: Response) => {
   try {
     const { token } = req.body;
-    
+
     if (!token) {
       return res.status(401).json({ success: false, error: 'No token provided' });
     }
-    
+
     const decoded = jwt.verify(token, JWT_SECRET);
     res.json({ success: true, decoded });
   } catch (error) {
     res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+});
+
+// Email registration endpoint
+app.post('/auth/email/register', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password does not meet requirements',
+        details: passwordValidation.errors
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await pool.query(
+      'SELECT user_id FROM auth_credentials WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'An account with this email already exists'
+      });
+    }
+
+    // Generate user ID and hash password
+    const userId = `email_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const passwordHash = await hashPassword(password);
+    const { token: verificationToken, expires: verificationExpires } = generateVerificationToken();
+
+    // Create user and auth credential in transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Create user
+      await client.query(
+        `INSERT INTO users (id, provider, email) VALUES ($1, $2, $3)`,
+        [userId, 'email', email.toLowerCase()]
+      );
+
+      // Create auth credential
+      await client.query(
+        `INSERT INTO auth_credentials
+         (user_id, provider, email, password_hash, email_verified, verification_token, verification_expires)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, 'email', email.toLowerCase(), passwordHash, false, verificationToken, verificationExpires]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    // Send verification email
+    await emailService.sendVerificationEmail(email, verificationToken);
+
+    logger.info('User registered', { userId, email: email.toLowerCase() });
+    res.json({
+      success: true,
+      message: 'Registration successful. Please check your email to verify your account.'
+    });
+  } catch (error) {
+    logger.error('Email registration error', { error });
+    res.status(500).json({ success: false, error: 'Registration failed' });
   }
 });
 
