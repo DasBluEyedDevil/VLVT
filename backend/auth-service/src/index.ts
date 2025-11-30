@@ -562,6 +562,201 @@ app.post('/auth/email/resend-verification', authLimiter, async (req: Request, re
   }
 });
 
+// Instagram OAuth endpoint
+app.post('/auth/instagram', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({ success: false, error: 'accessToken is required' });
+    }
+
+    // Verify Instagram token and get user info
+    const igResponse = await fetch(
+      `https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`
+    );
+
+    if (!igResponse.ok) {
+      return res.status(401).json({ success: false, error: 'Invalid Instagram access token' });
+    }
+
+    const igUser = await igResponse.json();
+
+    if (!igUser.id) {
+      return res.status(401).json({ success: false, error: 'Failed to get Instagram user info' });
+    }
+
+    const providerId = `instagram_${igUser.id}`;
+
+    // Check if this Instagram account is already linked
+    const existingCredential = await pool.query(
+      `SELECT ac.user_id, ac.email, ac.email_verified, u.email as user_email
+       FROM auth_credentials ac
+       JOIN users u ON ac.user_id = u.id
+       WHERE ac.provider = 'instagram' AND ac.provider_id = $1`,
+      [providerId]
+    );
+
+    if (existingCredential.rows.length > 0) {
+      const credential = existingCredential.rows[0];
+
+      // If they have a verified email, log them in
+      if (credential.email && credential.email_verified) {
+        const token = jwt.sign(
+          { userId: credential.user_id, provider: 'instagram', email: credential.email },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        return res.json({
+          success: true,
+          token,
+          userId: credential.user_id,
+          provider: 'instagram'
+        });
+      } else {
+        // Need to collect/verify email
+        const tempToken = jwt.sign(
+          { igUserId: igUser.id, igUsername: igUser.username, userId: credential.user_id },
+          JWT_SECRET,
+          { expiresIn: '15m' }
+        );
+
+        return res.json({
+          success: true,
+          needsEmail: true,
+          tempToken,
+          username: igUser.username
+        });
+      }
+    }
+
+    // New Instagram user - needs to provide email
+    const tempToken = jwt.sign(
+      { igUserId: igUser.id, igUsername: igUser.username, isNew: true },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({
+      success: true,
+      needsEmail: true,
+      tempToken,
+      username: igUser.username
+    });
+  } catch (error) {
+    logger.error('Instagram authentication error', { error });
+    res.status(500).json({ success: false, error: 'Authentication failed' });
+  }
+});
+
+// Instagram complete registration (collect email)
+app.post('/auth/instagram/complete', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { tempToken, email } = req.body;
+
+    if (!tempToken || !email) {
+      return res.status(400).json({ success: false, error: 'Temp token and email are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+
+    // Verify temp token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(tempToken, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
+
+    const { igUserId, igUsername, userId: existingUserId, isNew } = decoded;
+    const providerId = `instagram_${igUserId}`;
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if email already exists (for account linking)
+    const existingEmail = await pool.query(
+      'SELECT user_id FROM auth_credentials WHERE email = $1',
+      [normalizedEmail]
+    );
+
+    let userId: string;
+    const { token: verificationToken, expires: verificationExpires } = generateVerificationToken();
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      if (existingEmail.rows.length > 0) {
+        // Link Instagram to existing account
+        userId = existingEmail.rows[0].user_id;
+
+        await client.query(
+          `INSERT INTO auth_credentials
+           (user_id, provider, provider_id, email, email_verified, verification_token, verification_expires)
+           VALUES ($1, 'instagram', $2, $3, false, $4, $5)
+           ON CONFLICT (provider, provider_id) DO UPDATE SET
+             email = $3, verification_token = $4, verification_expires = $5, updated_at = NOW()`,
+          [userId, providerId, normalizedEmail, verificationToken, verificationExpires]
+        );
+      } else if (existingUserId) {
+        // Update existing Instagram credential with email
+        userId = existingUserId;
+
+        await client.query(
+          `UPDATE auth_credentials
+           SET email = $1, verification_token = $2, verification_expires = $3, updated_at = NOW()
+           WHERE user_id = $4 AND provider = 'instagram'`,
+          [normalizedEmail, verificationToken, verificationExpires, userId]
+        );
+
+        await client.query(
+          'UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2',
+          [normalizedEmail, userId]
+        );
+      } else {
+        // Create new user
+        userId = `instagram_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        await client.query(
+          'INSERT INTO users (id, provider, email) VALUES ($1, $2, $3)',
+          [userId, 'instagram', normalizedEmail]
+        );
+
+        await client.query(
+          `INSERT INTO auth_credentials
+           (user_id, provider, provider_id, email, email_verified, verification_token, verification_expires)
+           VALUES ($1, 'instagram', $2, $3, false, $4, $5)`,
+          [userId, providerId, normalizedEmail, verificationToken, verificationExpires]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    // Send verification email
+    await emailService.sendVerificationEmail(normalizedEmail, verificationToken);
+
+    logger.info('Instagram registration completed', { userId, email: normalizedEmail });
+    res.json({
+      success: true,
+      message: 'Please check your email to verify your account.',
+      userId
+    });
+  } catch (error) {
+    logger.error('Instagram complete error', { error });
+    res.status(500).json({ success: false, error: 'Registration failed' });
+  }
+});
+
 // Test login endpoint (ONLY FOR DEVELOPMENT/TESTING/BETA)
 // This bypasses OAuth and allows direct login with any user ID
 // Enable in beta testing with ENABLE_TEST_ENDPOINTS=true
