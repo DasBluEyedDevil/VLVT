@@ -1,0 +1,9 @@
+# Clean URL redirects
+/privacy    /privacy.html    200
+/terms      /terms.html      200
+/support    /support.html    200
+/delete     /delete-account.html    200
+/delete-account    /delete-account.html    200
+
+# Redirect www to apex (optional - remove if you prefer www)
+# https://www.getvlvt.vip/*    https://getvlvt.vip/:splat    301

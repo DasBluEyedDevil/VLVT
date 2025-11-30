@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="VLVT - Request account deletion and data removal.">
+  <title>Delete Account - VLVT</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    .deletion-box {
+      background: #FEF2F2;
+      border: 2px solid #EF4444;
+      border-radius: 1rem;
+      padding: 2rem;
+      margin: 2rem 0;
+    }
+    .deletion-box h3 {
+      color: #DC2626;
+      margin-top: 0;
+    }
+    .steps {
+      background: white;
+      border-radius: 1rem;
+      padding: 2rem;
+      margin: 2rem 0;
+    }
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: flex-start;
+    }
+    .step-number {
+      background: var(--gradient);
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .step-content h4 {
+      margin: 0 0 0.5rem 0;
+    }
+    .step-content p {
+      margin: 0;
+      color: var(--gray);
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #D1D5DB;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+    }
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .checkbox-group input {
+      width: auto;
+      margin-top: 0.25rem;
+    }
+    .submit-btn {
+      background: #DC2626;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .submit-btn:hover {
+      background: #B91C1C;
+    }
+    .data-list {
+      background: #F3F4F6;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+    }
+    .data-list ul {
+      margin: 0;
+      padding-left: 1.5rem;
+    }
+    .data-list li {
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/" class="logo">VLVT</a>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy.html">Privacy</a></li>
+        <li><a href="/terms.html">Terms</a></li>
+        <li><a href="/support.html">Support</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="legal-page">
+      <h1>Delete Your Account</h1>
+      <p>We're sorry to see you go. This page explains how to delete your VLVT account and request removal of your personal data.</p>
+
+      <div class="deletion-box">
+        <h3>⚠️ Important: Account Deletion is Permanent</h3>
+        <p>Once your account is deleted:</p>
+        <ul>
+          <li>Your profile will be immediately removed from discovery</li>
+          <li>All your matches and messages will be deleted</li>
+          <li>Your photos and profile information will be erased</li>
+          <li>Any active subscription will continue until the end of the billing period, but you won't be able to use premium features</li>
+          <li><strong>This action cannot be undone</strong></li>
+        </ul>
+      </div>
+
+      <h2>Option 1: Delete from the App (Recommended)</h2>
+      <p>The fastest way to delete your account is directly in the VLVT app:</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>Open VLVT</h4>
+            <p>Launch the app and make sure you're logged in</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>Go to Profile</h4>
+            <p>Tap the Profile tab at the bottom of the screen</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>Open Settings</h4>
+            <p>Tap the gear icon in the top right corner</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h4>Delete Account</h4>
+            <p>Scroll down and tap "Delete Account," then confirm your decision</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Option 2: Request Deletion via Email</h2>
+      <p>If you can't access the app or prefer to request deletion by email, send a request to:</p>
+      <p style="text-align: center; font-size: 1.25rem; margin: 1.5rem 0;">
+        <a href="mailto:privacy@getvlvt.com?subject=Account%20Deletion%20Request">📧 privacy@getvlvt.com</a>
+      </p>
+      <p>Please include:</p>
+      <ul>
+        <li>The email address associated with your account</li>
+        <li>Subject line: "Account Deletion Request"</li>
+        <li>Confirmation that you understand this action is permanent</li>
+      </ul>
+
+      <h2>Option 3: Submit Deletion Request Form</h2>
+      <p>Fill out the form below to request account and data deletion:</p>
+
+      <form action="https://formspree.io/f/your-form-id" method="POST" class="steps">
+        <div class="form-group">
+          <label for="email">Email Address (associated with your VLVT account) *</label>
+          <input type="email" id="email" name="email" required placeholder="your@email.com">
+        </div>
+
+        <div class="form-group">
+          <label for="request-type">Request Type *</label>
+          <select id="request-type" name="request-type" required>
+            <option value="">Select an option</option>
+            <option value="delete-account">Delete my account and all data</option>
+            <option value="delete-data-only">Delete my data but keep account</option>
+            <option value="data-export">Export my data (before deletion)</option>
+            <option value="specific-data">Delete specific data only</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="details">Additional Details (optional)</label>
+          <textarea id="details" name="details" placeholder="Any additional information about your request..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="confirm" name="confirm" required>
+            <label for="confirm">I understand that account deletion is permanent and cannot be undone. All my data, matches, and messages will be permanently erased.</label>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn">Submit Deletion Request</button>
+      </form>
+
+      <h2>What Data Will Be Deleted?</h2>
+      <div class="data-list">
+        <p><strong>The following data will be permanently deleted:</strong></p>
+        <ul>
+          <li>Account information (email, authentication data)</li>
+          <li>Profile information (name, age, bio, interests)</li>
+          <li>All photos you uploaded</li>
+          <li>All matches and conversations</li>
+          <li>Location data</li>
+          <li>App usage history</li>
+          <li>Device information</li>
+        </ul>
+      </div>
+
+      <div class="data-list">
+        <p><strong>Data that may be retained:</strong></p>
+        <ul>
+          <li>Reports you made about other users (for safety purposes, anonymized)</li>
+          <li>Transaction records (required for legal/tax purposes, up to 7 years)</li>
+          <li>Data required to comply with legal obligations</li>
+        </ul>
+      </div>
+
+      <h2>Processing Time</h2>
+      <ul>
+        <li><strong>In-app deletion:</strong> Immediate (profile removed within minutes)</li>
+        <li><strong>Email/Form requests:</strong> Processed within 7 business days</li>
+        <li><strong>Complete data erasure:</strong> Up to 30 days from request</li>
+        <li><strong>Backup removal:</strong> Up to 90 days (backups are automatically overwritten)</li>
+      </ul>
+
+      <h2>Cancel Your Subscription First</h2>
+      <p>If you have an active subscription, deleting your account does <strong>not</strong> automatically cancel it. To avoid future charges:</p>
+      <ul>
+        <li><strong>iOS:</strong> Go to Settings → Apple ID → Subscriptions → VLVT → Cancel</li>
+        <li><strong>Android:</strong> Go to Play Store → Menu → Subscriptions → VLVT → Cancel</li>
+      </ul>
+
+      <h2>Questions?</h2>
+      <p>If you have any questions about the deletion process, contact us at <a href="mailto:support@getvlvt.com">support@getvlvt.com</a></p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div>
+        <h4>VLVT</h4>
+        <p style="color: #9CA3AF;">Dating made simple.</p>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/privacy.html">Privacy Policy</a></li>
+          <li><a href="/terms.html">Terms of Service</a></li>
+          <li><a href="/delete-account.html">Delete Account</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul>
+          <li><a href="/support.html">Help Center</a></li>
+          <li><a href="mailto:support@getvlvt.com">Contact Us</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 VLVT. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# Cloudflare Pages configuration
+name = "vlvt-website"
+pages_build_output_dir = "./website"
