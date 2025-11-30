@@ -121,34 +121,72 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
         return res.status(401).json({ success: false, error: 'Invalid identity token claims' });
       }
 
-      // Extract verified providerId and email from token claims
       const providerId = `apple_${appleIdTokenClaims.sub}`;
-      const email = appleIdTokenClaims.email || `user_${appleIdTokenClaims.sub}@apple.example.com`;
+      const email = appleIdTokenClaims.email?.toLowerCase() || `user_${appleIdTokenClaims.sub}@apple.example.com`;
       const provider = 'apple';
 
-      // Upsert user in database
-      const result = await pool.query(
-        `INSERT INTO users (id, provider, email)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (id)
-         DO UPDATE SET updated_at = CURRENT_TIMESTAMP, email = $3
-         RETURNING id, provider, email`,
-        [providerId, provider, email]
+      // Check if this Apple account is already linked
+      const existingCredential = await pool.query(
+        `SELECT ac.user_id FROM auth_credentials ac WHERE ac.provider = $1 AND ac.provider_id = $2`,
+        [provider, providerId]
       );
 
-      const user = result.rows[0];
-      const token = jwt.sign(
-        { userId: user.id, provider: user.provider, email: user.email },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+      let userId: string;
 
-      res.json({
-        success: true,
-        token,
-        userId: user.id,
-        provider: user.provider
-      });
+      if (existingCredential.rows.length > 0) {
+        userId = existingCredential.rows[0].user_id;
+        await pool.query('UPDATE users SET updated_at = NOW() WHERE id = $1', [userId]);
+      } else {
+        // Check for existing user with same email (account linking)
+        const existingEmail = await pool.query(
+          'SELECT user_id FROM auth_credentials WHERE email = $1',
+          [email]
+        );
+
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+
+          if (existingEmail.rows.length > 0) {
+            // Link to existing account
+            userId = existingEmail.rows[0].user_id;
+
+            await client.query(
+              `INSERT INTO auth_credentials (user_id, provider, provider_id, email, email_verified)
+               VALUES ($1, $2, $3, $4, true)
+               ON CONFLICT (provider, provider_id) DO UPDATE SET updated_at = NOW()`,
+              [userId, provider, providerId, email]
+            );
+          } else {
+            // Create new user (maintain backwards compatibility with old ID format)
+            userId = providerId;
+
+            await client.query(
+              `INSERT INTO users (id, provider, email) VALUES ($1, $2, $3)
+               ON CONFLICT (id) DO UPDATE SET updated_at = NOW(), email = $3`,
+              [userId, provider, email]
+            );
+
+            await client.query(
+              `INSERT INTO auth_credentials (user_id, provider, provider_id, email, email_verified)
+               VALUES ($1, $2, $3, $4, true)
+               ON CONFLICT (provider, provider_id) DO UPDATE SET updated_at = NOW()`,
+              [userId, provider, providerId, email]
+            );
+          }
+
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+      }
+
+      const token = jwt.sign({ userId, provider, email }, JWT_SECRET, { expiresIn: '7d' });
+
+      res.json({ success: true, token, userId, provider });
     } catch (verifyError) {
       logger.error('Apple token verification failed', { error: verifyError });
       return res.status(401).json({ success: false, error: 'Failed to verify Apple identity token' });
@@ -163,50 +201,87 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
 app.post('/auth/google', authLimiter, async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
-    
+
     if (!idToken) {
       return res.status(400).json({ success: false, error: 'idToken is required' });
     }
-    
-    // Verify the Google ID token
+
     const ticket = await googleClient.verifyIdToken({
       idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID, // Optional: verify audience
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
-    
+
     const payload = ticket.getPayload();
     if (!payload || !payload.sub) {
       return res.status(401).json({ success: false, error: 'Invalid token payload' });
     }
-    
-    // Extract real providerId and email from verified token
+
     const providerId = `google_${payload.sub}`;
-    const email = payload.email || `user_${payload.sub}@google.example.com`;
+    const email = payload.email?.toLowerCase() || `user_${payload.sub}@google.example.com`;
     const provider = 'google';
-    
-    // Upsert user in database
-    const result = await pool.query(
-      `INSERT INTO users (id, provider, email) 
-       VALUES ($1, $2, $3) 
-       ON CONFLICT (id) 
-       DO UPDATE SET updated_at = CURRENT_TIMESTAMP, email = $3
-       RETURNING id, provider, email`,
-      [providerId, provider, email]
+
+    // Check if this Google account is already linked
+    const existingCredential = await pool.query(
+      `SELECT ac.user_id FROM auth_credentials ac WHERE ac.provider = $1 AND ac.provider_id = $2`,
+      [provider, providerId]
     );
-    
-    const user = result.rows[0];
-    const token = jwt.sign(
-      { userId: user.id, provider: user.provider, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    
-    res.json({
-      success: true,
-      token,
-      userId: user.id,
-      provider: user.provider
-    });
+
+    let userId: string;
+
+    if (existingCredential.rows.length > 0) {
+      userId = existingCredential.rows[0].user_id;
+      await pool.query('UPDATE users SET updated_at = NOW() WHERE id = $1', [userId]);
+    } else {
+      // Check for existing user with same email (account linking)
+      const existingEmail = await pool.query(
+        'SELECT user_id FROM auth_credentials WHERE email = $1',
+        [email]
+      );
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        if (existingEmail.rows.length > 0) {
+          // Link to existing account
+          userId = existingEmail.rows[0].user_id;
+
+          await client.query(
+            `INSERT INTO auth_credentials (user_id, provider, provider_id, email, email_verified)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT (provider, provider_id) DO UPDATE SET updated_at = NOW()`,
+            [userId, provider, providerId, email]
+          );
+        } else {
+          // Create new user (maintain backwards compatibility with old ID format)
+          userId = providerId;
+
+          await client.query(
+            `INSERT INTO users (id, provider, email) VALUES ($1, $2, $3)
+             ON CONFLICT (id) DO UPDATE SET updated_at = NOW(), email = $3`,
+            [userId, provider, email]
+          );
+
+          await client.query(
+            `INSERT INTO auth_credentials (user_id, provider, provider_id, email, email_verified)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT (provider, provider_id) DO UPDATE SET updated_at = NOW()`,
+            [userId, provider, providerId, email]
+          );
+        }
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    const token = jwt.sign({ userId, provider, email }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({ success: true, token, userId, provider });
   } catch (error) {
     logger.error('Google authentication error', { error });
     res.status(500).json({ success: false, error: 'Authentication failed' });
