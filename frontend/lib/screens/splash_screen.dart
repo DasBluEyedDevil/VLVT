@@ -13,6 +13,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _controller;
   bool _isInitialized = false;
+  bool _hasCompleted = false;
 
   @override
   void initState() {
@@ -25,27 +26,49 @@ class _SplashScreenState extends State<SplashScreen> {
 
     try {
       await _controller.initialize();
+
+      if (!mounted) return;
       setState(() => _isInitialized = true);
 
+      debugPrint('Splash video initialized: ${_controller.value.duration}');
+
       // Listen for video completion
-      _controller.addListener(() {
-        if (_controller.value.position >= _controller.value.duration) {
-          widget.onComplete();
-        }
-      });
+      _controller.addListener(_onVideoUpdate);
 
       // Start playing
       await _controller.play();
+      debugPrint('Splash video playing');
     } catch (e) {
       // If video fails to load, skip splash after a short delay
       debugPrint('Splash video failed to load: $e');
       await Future.delayed(const Duration(milliseconds: 500));
-      widget.onComplete();
+      _complete();
     }
+  }
+
+  void _onVideoUpdate() {
+    if (_hasCompleted) return;
+
+    final position = _controller.value.position;
+    final duration = _controller.value.duration;
+
+    // Check if video has finished (position is at or near the end)
+    if (duration.inMilliseconds > 0 &&
+        position.inMilliseconds >= duration.inMilliseconds - 100) {
+      debugPrint('Splash video completed');
+      _complete();
+    }
+  }
+
+  void _complete() {
+    if (_hasCompleted) return;
+    _hasCompleted = true;
+    widget.onComplete();
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onVideoUpdate);
     _controller.dispose();
     super.dispose();
   }
