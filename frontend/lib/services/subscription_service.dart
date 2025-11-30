@@ -7,7 +7,7 @@ import '../config/app_config.dart';
 /// RevenueCat Configuration Constants
 class RevenueCatConfig {
   // Entitlement identifier from RevenueCat dashboard
-  static const String entitlementId = 'No BS Dating Unlimited';
+  static const String entitlementId = 'vlvt_unlimited';
 
   // Product identifiers (must match RevenueCat dashboard)
   static const String monthlyProductId = 'monthly';
