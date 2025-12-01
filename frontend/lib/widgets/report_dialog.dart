@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'vlvt_input.dart';
 
 class ReportDialog extends StatefulWidget {
   final String userName;
@@ -157,19 +158,13 @@ class _ReportDialogState extends State<ReportDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
+            VlvtInput(
               controller: _detailsController,
-              decoration: const InputDecoration(
-                hintText: 'Provide any additional information...',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
+              hintText: 'Provide any additional information...',
               maxLines: 3,
               maxLength: 500,
               enabled: !_isSubmitting,
+              blur: false,
             ),
             const SizedBox(height: 8),
             const Text(

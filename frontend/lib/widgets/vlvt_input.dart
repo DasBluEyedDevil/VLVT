@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import '../theme/vlvt_decorations.dart';
@@ -58,6 +59,15 @@ class VlvtInput extends StatefulWidget {
   /// Focus node.
   final FocusNode? focusNode;
 
+  /// Input formatters (e.g., digits only).
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// Maximum character length.
+  final int? maxLength;
+
+  /// Text capitalization.
+  final TextCapitalization textCapitalization;
+
   const VlvtInput({
     super.key,
     this.controller,
@@ -77,6 +87,9 @@ class VlvtInput extends StatefulWidget {
     this.autocorrect = true,
     this.maxLines = 1,
     this.focusNode,
+    this.inputFormatters,
+    this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -121,6 +134,9 @@ class _VlvtInputState extends State<VlvtInput> {
       autocorrect: widget.autocorrect,
       enabled: widget.enabled,
       maxLines: widget.maxLines,
+      maxLength: widget.maxLength,
+      inputFormatters: widget.inputFormatters,
+      textCapitalization: widget.textCapitalization,
       style: VlvtTextStyles.input,
       validator: widget.validator,
       onChanged: widget.onChanged,

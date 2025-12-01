@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../constants/spacing.dart';
+import '../widgets/vlvt_input.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import '../utils/error_handler.dart';
@@ -324,131 +325,48 @@ class _AuthScreenState extends State<AuthScreen>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               // Email input - dark glassmorphism style
-                              ClipRRect(
-                                borderRadius: Spacing.borderRadiusMd,
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                  child: TextFormField(
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    autocorrect: false,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(alpha: 0.1),
-                                      hintText: 'Email',
-                                      hintStyle: const TextStyle(
-                                          color: Color(0xFFD4AF37)), // Gold hint
-                                      prefixIcon: const Icon(Icons.email_outlined,
-                                          color: Color(0xFFD4AF37)), // Gold icon
-                                      border: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: BorderSide(
-                                            color: Colors.white.withValues(alpha: 0.3), width: 1),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: BorderSide(
-                                            color: Colors.white.withValues(alpha: 0.3), width: 1),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFFD4AF37), width: 2), // Gold border on focus
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Colors.redAccent, width: 1),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Colors.redAccent, width: 2),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return 'Please enter your email';
-                                      }
-                                      if (!value.contains('@') ||
-                                          !value.contains('.')) {
-                                        return 'Please enter a valid email';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
+                              VlvtInput(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                autocorrect: false,
+                                hintText: 'Email',
+                                prefixIcon: Icons.email_outlined,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter your email';
+                                  }
+                                  if (!value.contains('@') ||
+                                      !value.contains('.')) {
+                                    return 'Please enter a valid email';
+                                  }
+                                  return null;
+                                },
                               ),
                               Spacing.verticalMd,
                               // Password input - dark glassmorphism style
-                              ClipRRect(
-                                borderRadius: Spacing.borderRadiusMd,
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                  child: TextFormField(
-                                    controller: _passwordController,
-                                    obscureText: _obscurePassword,
-                                    autocorrect: false,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(alpha: 0.1),
-                                      hintText: 'Password',
-                                      hintStyle: const TextStyle(
-                                          color: Color(0xFFD4AF37)), // Gold hint
-                                      prefixIcon: const Icon(Icons.lock_outlined,
-                                          color: Color(0xFFD4AF37)), // Gold icon
-                                      suffixIcon: IconButton(
-                                        icon: Icon(
-                                          _obscurePassword
-                                              ? Icons.visibility_outlined
-                                              : Icons.visibility_off_outlined,
-                                          color: const Color(0xFFD4AF37), // Gold icon
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _obscurePassword = !_obscurePassword;
-                                          });
-                                        },
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: BorderSide(
-                                            color: Colors.white.withValues(alpha: 0.3), width: 1),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: BorderSide(
-                                            color: Colors.white.withValues(alpha: 0.3), width: 1),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFFD4AF37), width: 2), // Gold border
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Colors.redAccent, width: 1),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius: Spacing.borderRadiusMd,
-                                        borderSide: const BorderSide(
-                                            color: Colors.redAccent, width: 2),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Please enter your password';
-                                      }
-                                      if (value.length < 6) {
-                                        return 'Password must be at least 6 characters';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
+                              VlvtInput(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                autocorrect: false,
+                                hintText: 'Password',
+                                prefixIcon: Icons.lock_outlined,
+                                suffixIcon: _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                onSuffixTap: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your password';
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
                               ),
                               Spacing.verticalLg,
                               // Sign In button with glow effect

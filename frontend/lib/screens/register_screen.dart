@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../constants/spacing.dart';
+import '../widgets/vlvt_input.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import '../utils/error_handler.dart';
@@ -226,36 +227,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Email input
-                          TextFormField(
+                          VlvtInput(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             autocorrect: false,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              hintText: 'Email',
-                              prefixIcon: const Icon(Icons.email_outlined),
-                              border: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: VlvtColors.primary, width: 2),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                            ),
+                            hintText: 'Email',
+                            prefixIcon: Icons.email_outlined,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your email';
@@ -268,50 +245,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           Spacing.verticalMd,
                           // Password input
-                          TextFormField(
+                          VlvtInput(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             autocorrect: false,
+                            hintText: 'Password',
+                            prefixIcon: Icons.lock_outlined,
+                            suffixIcon: _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            onSuffixTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                             onChanged: (value) {
                               // Trigger rebuild to update password requirements display
                               setState(() {});
                             },
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              hintText: 'Password',
-                              prefixIcon: const Icon(Icons.lock_outlined),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: VlvtColors.primary, width: 2),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                            ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter a password';
@@ -357,46 +308,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                           Spacing.verticalMd,
                           // Confirm password input
-                          TextFormField(
+                          VlvtInput(
                             controller: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
                             autocorrect: false,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              hintText: 'Confirm Password',
-                              prefixIcon: const Icon(Icons.lock_outlined),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: VlvtColors.primary, width: 2),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: Spacing.borderRadiusMd,
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                            ),
+                            hintText: 'Confirm Password',
+                            prefixIcon: Icons.lock_outlined,
+                            suffixIcon: _obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            onSuffixTap: () {
+                              setState(() {
+                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                              });
+                            },
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please confirm your password';

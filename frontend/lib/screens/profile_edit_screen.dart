@@ -5,7 +5,9 @@ import '../models/profile.dart';
 import '../services/profile_api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/photo_manager_widget.dart';
+import '../widgets/vlvt_input.dart';
 import '../theme/vlvt_colors.dart';
+import '../theme/vlvt_text_styles.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   final Profile? existingProfile;
@@ -160,33 +162,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     color: VlvtColors.gold,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Welcome!',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: VlvtTextStyles.displaySmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Let\'s set up your profile to get started',
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: VlvtTextStyles.bodyMedium.copyWith(
                       color: VlvtColors.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
                 ],
-                TextFormField(
+                VlvtInput(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name *',
-                    hintText: 'Enter your name',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
+                  labelText: 'Name *',
+                  hintText: 'Enter your name',
+                  prefixIcon: Icons.person,
                   textCapitalization: TextCapitalization.words,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -199,14 +194,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                VlvtInput(
                   controller: _ageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Age *',
-                    hintText: 'Enter your age',
-                    prefixIcon: Icon(Icons.cake),
-                    border: OutlineInputBorder(),
-                  ),
+                  labelText: 'Age *',
+                  hintText: 'Enter your age',
+                  prefixIcon: Icons.cake,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
@@ -230,38 +222,28 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                VlvtInput(
                   controller: _bioController,
-                  decoration: const InputDecoration(
-                    labelText: 'Bio',
-                    hintText: 'Tell us about yourself...',
-                    prefixIcon: Icon(Icons.edit_note),
-                    border: OutlineInputBorder(),
-                    alignLabelWithHint: true,
-                  ),
+                  labelText: 'Bio',
+                  hintText: 'Tell us about yourself...',
+                  prefixIcon: Icons.edit_note,
                   maxLines: 4,
                   maxLength: 500,
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Interests',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: VlvtTextStyles.labelLarge,
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: VlvtInput(
                         controller: _interestController,
-                        decoration: const InputDecoration(
-                          hintText: 'Add an interest',
-                          prefixIcon: Icon(Icons.interests),
-                          border: OutlineInputBorder(),
-                        ),
+                        hintText: 'Add an interest',
+                        prefixIcon: Icons.interests,
                         textCapitalization: TextCapitalization.words,
                         onSubmitted: (_) => _addInterest(),
                       ),

@@ -14,6 +14,7 @@ import '../models/profile.dart';
 import '../utils/date_utils.dart';
 import '../widgets/user_action_sheet.dart';
 import '../widgets/premium_gate_dialog.dart';
+import '../widgets/vlvt_input.dart';
 import '../theme/vlvt_colors.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -590,21 +591,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Row(children: [
             Expanded(
-              child: TextField(
+              child: VlvtInput(
                 controller: _messageController,
-                style: TextStyle(color: VlvtColors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'Type a message...',
-                  hintStyle: TextStyle(color: VlvtColors.textMuted),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
-                  filled: true,
-                  fillColor: VlvtColors.surfaceInput,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                ),
+                hintText: 'Type a message...',
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(),
                 textInputAction: TextInputAction.send,
+                blur: false,
               ),
             ),
             const SizedBox(width: 8),

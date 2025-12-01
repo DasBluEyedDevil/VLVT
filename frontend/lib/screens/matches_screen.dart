@@ -13,6 +13,7 @@ import '../utils/date_utils.dart';
 import '../widgets/user_action_sheet.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/vlvt_loader.dart';
+import '../widgets/vlvt_input.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import 'chat_screen.dart';
@@ -584,15 +585,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
       appBar: AppBar(
         backgroundColor: VlvtColors.background,
         title: _isSearching
-            ? TextField(
+            ? VlvtInput(
                 controller: _searchController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search matches...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: VlvtColors.textMuted),
-                ),
-                style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.textPrimary),
+                focusNode: FocusNode()..requestFocus(),
+                hintText: 'Search matches...',
+                blur: false,
                 onChanged: (value) {
                   setState(() {
                     _searchQuery = value;

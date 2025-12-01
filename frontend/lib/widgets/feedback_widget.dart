@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'vlvt_input.dart';
 
 /// Beta Feedback Widget
 ///
@@ -289,15 +290,12 @@ class _FeedbackFormState extends State<FeedbackForm> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                VlvtInput(
                   controller: _feedbackController,
                   maxLines: 5,
                   maxLength: 1000,
-                  decoration: const InputDecoration(
-                    hintText: 'Tell us what you think...',
-                    border: OutlineInputBorder(),
-                    counterText: '',
-                  ),
+                  hintText: 'Tell us what you think...',
+                  blur: false,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your feedback';
