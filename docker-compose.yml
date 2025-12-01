@@ -40,6 +40,7 @@ services:
       - "${PROFILE_PORT:-3002}:${PROFILE_PORT:-3002}"
     environment:
       PORT: ${PROFILE_PORT:-3002}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env file}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nobsdating}
     depends_on:
       postgres:
@@ -53,6 +54,7 @@ services:
       - "${CHAT_PORT:-3003}:${CHAT_PORT:-3003}"
     environment:
       PORT: ${CHAT_PORT:-3003}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env file}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nobsdating}
     depends_on:
       postgres:

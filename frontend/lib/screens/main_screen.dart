@@ -44,8 +44,11 @@ class MainScreenState extends State<MainScreen> {
   Future<void> _initializeSubscription() async {
     final authService = context.read<AuthService>();
     final subscriptionService = context.read<SubscriptionService>();
-    
+
     if (authService.userId != null) {
+      // Pass auth token so subscription service can check backend database
+      // (needed for test users whose subscriptions are stored in DB, not RevenueCat)
+      subscriptionService.setAuthToken(authService.token);
       await subscriptionService.initialize(authService.userId!);
     }
   }

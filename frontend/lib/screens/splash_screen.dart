@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: VlvtBackground.premium(
+        child: VlvtBackground(
           child: Center(
             child: AnimatedBuilder(
               animation: _logoController,

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../config/app_config.dart';
 import '../widgets/vlvt_button.dart';
 
@@ -33,6 +35,7 @@ class SubscriptionService extends ChangeNotifier {
   bool _isLoading = false;
   bool _isRevenueCatConfigured = false;
   String? _currentUserId;
+  String? _authToken;
 
   // Customer info cache
   CustomerInfo? _customerInfo;
@@ -49,12 +52,28 @@ class SubscriptionService extends ChangeNotifier {
   Offerings? get offerings => _offerings;
   String? get currentUserId => _currentUserId;
 
+  /// Set auth token for backend API calls
+  void setAuthToken(String? token) {
+    _authToken = token;
+  }
+
   /// Initialize RevenueCat SDK
   Future<void> initialize(String userId) async {
     try {
       _isLoading = true;
       _currentUserId = userId;
       notifyListeners();
+
+      // First, check backend for subscription status (works for test users)
+      await _checkBackendSubscriptionStatus();
+
+      // If already premium from backend, we're done (test user case)
+      if (_hasPremiumAccess) {
+        debugPrint('SubscriptionService: User has premium from backend database');
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
 
       // Check if API key is available
       final apiKey = RevenueCatConfig.apiKey;
@@ -97,6 +116,35 @@ class SubscriptionService extends ChangeNotifier {
       _isRevenueCatConfigured = false;
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Check backend database for subscription status (for test users)
+  Future<void> _checkBackendSubscriptionStatus() async {
+    if (_authToken == null) {
+      debugPrint('SubscriptionService: No auth token, skipping backend check');
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.authServiceUrl}/auth/subscription-status'),
+        headers: {
+          'Authorization': 'Bearer $_authToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['isPremium'] == true) {
+          _hasPremiumAccess = true;
+          debugPrint('SubscriptionService: Backend confirms premium status');
+        }
+      }
+    } catch (e) {
+      debugPrint('SubscriptionService: Error checking backend subscription - $e');
+      // Fail silently - will fall back to RevenueCat
     }
   }
 

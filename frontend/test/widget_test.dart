@@ -8,8 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:nobsdating/main.dart';
-import 'package:nobsdating/services/theme_service.dart';
+import 'package:vlvt/main.dart';
+import 'package:vlvt/services/theme_service.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -10,7 +11,7 @@ import 'analytics_service.dart';
 class AuthService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
   final _googleSignIn = GoogleSignIn.instance;
-  bool _isGoogleSignInInitialized = false;
+  bool _googleSignInInitialized = false;
 
   String? _token;
   String? _userId;
@@ -28,16 +29,6 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _loadToken();
-    _initializeGoogleSignIn();
-  }
-
-  Future<void> _initializeGoogleSignIn() async {
-    if (!_isGoogleSignInInitialized) {
-      // Note: scopes parameter no longer exists in v7.x
-      // Scopes are now configured in platform-specific files
-      await _googleSignIn.initialize();
-      _isGoogleSignInInitialized = true;
-    }
   }
   
   Future<void> _loadToken() async {
@@ -97,6 +88,22 @@ class AuthService extends ChangeNotifier {
     }
   }
   
+  /// Initialize Google Sign-In (must be called before signInWithGoogle)
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (_googleSignInInitialized) return;
+
+    try {
+      await _googleSignIn.initialize(
+        clientId: AppConfig.googleClientId,
+        serverClientId: AppConfig.googleServerClientId,
+      );
+      _googleSignInInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing Google Sign-In: $e');
+      rethrow;
+    }
+  }
+
   Future<bool> signInWithGoogle() async {
     try {
       // Validate Google Client ID is configured in production
@@ -107,18 +114,61 @@ class AuthService extends ChangeNotifier {
         return false;
       }
 
-      final account = await _googleSignIn.authenticate(
-        scopeHint: const <String>['email', 'profile'],
+      // Initialize Google Sign-In if not already done
+      await _ensureGoogleSignInInitialized();
+
+      // Use the new v7 API - authenticate and get account via event stream
+      final completer = Completer<GoogleSignInAccount?>();
+      StreamSubscription<GoogleSignInAuthenticationEvent>? subscription;
+
+      subscription = _googleSignIn.authenticationEvents.listen(
+        (event) {
+          subscription?.cancel();
+          // Extract account from the authentication event
+          final GoogleSignInAccount? account = switch (event) {
+            GoogleSignInAuthenticationEventSignIn() => event.user,
+            GoogleSignInAuthenticationEventSignOut() => null,
+          };
+          completer.complete(account);
+        },
+        onError: (error) {
+          subscription?.cancel();
+          completer.completeError(error);
+        },
       );
 
+      // Check if authentication is supported
+      if (_googleSignIn.supportsAuthenticate()) {
+        await _googleSignIn.authenticate();
+      } else {
+        // Fallback for platforms without authentication support
+        await _googleSignIn.attemptLightweightAuthentication();
+      }
+
+      final account = await completer.future.timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => null,
+      );
+
+      if (account == null) {
+        await AnalyticsService.logLoginFailed('google', 'user_cancelled');
+        return false;
+      }
+
+      // Get the ID token from the authenticated account's authentication property
       final auth = account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        await AnalyticsService.logLoginFailed('google', 'no_id_token');
+        return false;
+      }
 
       // Send to backend
       final response = await http.post(
         Uri.parse('$baseUrl/auth/google'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'idToken': auth.idToken,
+          'idToken': idToken,
         }),
       );
 
@@ -378,7 +428,7 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     await _storage.delete(key: 'auth_token');
     await _storage.delete(key: 'user_id');
-    await _googleSignIn.signOut();
+    await _googleSignIn.disconnect();
 
     _token = null;
     _userId = null;

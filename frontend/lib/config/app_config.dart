@@ -3,11 +3,18 @@ import 'package:flutter/foundation.dart';
 
 /// Application configuration
 class AppConfig {
-  /// Google Sign-In Client ID
+  /// Google Sign-In Client ID (for mobile platforms)
   /// Get this from Firebase Console > Authentication > Sign-in method > Google
   /// IMPORTANT: This is required for Google Sign-In to work in production
   static const String googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
+    defaultValue: '', // Empty in development, must be set in production
+  );
+
+  /// Google Sign-In Server Client ID (for web/backend token verification)
+  /// This is typically the Web Client ID from Google Cloud Console
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
     defaultValue: '', // Empty in development, must be set in production
   );
 

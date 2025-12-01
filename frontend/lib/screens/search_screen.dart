@@ -167,7 +167,12 @@ class _SearchScreenState extends State<SearchScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: 16 + MediaQuery.of(context).padding.bottom + 80, // Extra padding for navbar
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -280,7 +285,6 @@ class _SearchScreenState extends State<SearchScreen> {
               loading: _isSearching,
               onPressed: _isSearching ? null : _performSearch,
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),

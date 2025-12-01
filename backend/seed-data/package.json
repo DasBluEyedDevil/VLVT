@@ -1,12 +1,15 @@
 {
-  "name": "nobsdating-seed-data",
-  "version": "1.0.0",
+  "name": "vlvt-seed-data",
+  "version": "2.0.0",
   "description": "Test database seeding scripts for VLVT",
-  "main": "seed.js",
+  "main": "seed-100-users.js",
   "scripts": {
-    "seed": "node seed.js",
-    "seed:clean": "node seed.js --clean",
-    "clean": "node seed.js --clean-only",
+    "seed": "node seed-100-users.js --clean",
+    "seed:fresh": "node seed-100-users.js --clean",
+    "seed:add": "node seed-100-users.js",
+    "clean": "node seed-100-users.js --clean-only",
+    "seed:preserve-reviewer": "node seed-100-users.js --clean --preserve-reviewer",
+    "seed:old": "node seed.js --clean",
     "add-reviewer": "node add-reviewer.js"
   },
   "keywords": ["database", "seeding", "testing"],

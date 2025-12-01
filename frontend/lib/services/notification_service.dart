@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:nobsdating/services/auth_service.dart';
-import 'package:nobsdating/config/app_config.dart';
+import 'package:vlvt/services/auth_service.dart';
+import 'package:vlvt/config/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 

@@ -304,6 +304,60 @@ app.post('/auth/verify', verifyLimiter, (req: Request, res: Response) => {
   }
 });
 
+// Check subscription status endpoint
+app.get('/auth/subscription-status', generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, error: 'Invalid token' });
+    }
+
+    const userId = decoded.userId;
+
+    // Query user_subscriptions table for active subscription
+    const result = await pool.query(
+      `SELECT is_active, expires_at, product_id, entitlement_id
+       FROM user_subscriptions
+       WHERE user_id = $1
+         AND is_active = true
+         AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY expires_at DESC NULLS FIRST
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (result.rows.length > 0) {
+      const sub = result.rows[0];
+      return res.json({
+        success: true,
+        isPremium: true,
+        subscription: {
+          productId: sub.product_id,
+          entitlementId: sub.entitlement_id,
+          expiresAt: sub.expires_at
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      isPremium: false,
+      subscription: null
+    });
+  } catch (error) {
+    logger.error('Error checking subscription status', { error });
+    res.status(500).json({ success: false, error: 'Failed to check subscription status' });
+  }
+});
+
 // Email registration endpoint
 app.post('/auth/email/register', authLimiter, async (req: Request, res: Response) => {
   try {

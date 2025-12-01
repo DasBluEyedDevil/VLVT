@@ -67,21 +67,10 @@ class _VlvtLoaderState extends State<VlvtLoader>
           opacity: _opacityAnimation,
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: VlvtColors.gold.withValues(alpha: 0.3),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: Image.asset(
-                'assets/images/vlvt_logo_text.png',
-                width: widget.size,
-                fit: BoxFit.contain,
-              ),
+            child: Image.asset(
+              'assets/images/vlvt_logo_text.png',
+              width: widget.size,
+              fit: BoxFit.contain,
             ),
           ),
         ),

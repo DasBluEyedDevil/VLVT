@@ -56,64 +56,52 @@ class ThemeToggleWidget extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Theme Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Light'),
-              subtitle: const Text('Always use light theme'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.light,
-                groupValue: themeService.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeService.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+        content: RadioGroup<ThemeMode>(
+          groupValue: themeService.themeMode,
+          onChanged: (value) {
+            if (value != null) {
+              themeService.setThemeMode(value);
+              Navigator.of(context).pop();
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Light'),
+                subtitle: const Text('Always use light theme'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.light,
+                ),
+                onTap: () {
+                  themeService.setThemeMode(ThemeMode.light);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeService.setThemeMode(ThemeMode.light);
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('Dark'),
-              subtitle: const Text('Always use dark theme'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.dark,
-                groupValue: themeService.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeService.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+              ListTile(
+                title: const Text('Dark'),
+                subtitle: const Text('Always use dark theme'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.dark,
+                ),
+                onTap: () {
+                  themeService.setThemeMode(ThemeMode.dark);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeService.setThemeMode(ThemeMode.dark);
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('System'),
-              subtitle: const Text('Follow system theme'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.system,
-                groupValue: themeService.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeService.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+              ListTile(
+                title: const Text('System'),
+                subtitle: const Text('Follow system theme'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.system,
+                ),
+                onTap: () {
+                  themeService.setThemeMode(ThemeMode.system);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeService.setThemeMode(ThemeMode.system);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           VlvtButton.text(

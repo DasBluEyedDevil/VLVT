@@ -122,35 +122,40 @@ class _ReportDialogState extends State<ReportDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            ..._reportReasons.map((reason) {
-              return ListTile(
-                title: Text(reason['label']!),
-                subtitle: Text(
-                  reason['description']!,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                leading: Radio<String>(
-                  value: reason['value']!,
-                  groupValue: _selectedReason,
-                  onChanged: _isSubmitting
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _selectedReason = value;
-                          });
-                        },
-                ),
-                onTap: _isSubmitting
-                    ? null
-                    : () {
-                        setState(() {
-                          _selectedReason = reason['value'];
-                        });
-                      },
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              );
-            }),
+            RadioGroup<String>(
+              groupValue: _selectedReason,
+              onChanged: (value) {
+                if (!_isSubmitting) {
+                  setState(() {
+                    _selectedReason = value;
+                  });
+                }
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _reportReasons.map((reason) {
+                  return ListTile(
+                    title: Text(reason['label']!),
+                    subtitle: Text(
+                      reason['description']!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    leading: Radio<String>(
+                      value: reason['value']!,
+                    ),
+                    onTap: _isSubmitting
+                        ? null
+                        : () {
+                            setState(() {
+                              _selectedReason = reason['value'];
+                            });
+                          },
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  );
+                }).toList(),
+              ),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Additional details (optional):',
