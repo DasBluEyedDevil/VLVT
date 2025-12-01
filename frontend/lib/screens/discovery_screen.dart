@@ -305,32 +305,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
     // Track profile passed event
     await AnalyticsService.logProfilePassed(profile.userId);
 
-    // Trigger subtle shake animation
-    _triggerShakeAnimation();
-
     // Move to next profile and show undo button
     _moveToNextProfile();
     _showUndo();
-  }
-
-  void _triggerShakeAnimation() {
-    if (_isShaking) return;
-
-    // Use addPostFrameCallback to avoid animation conflicts during layout
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() {
-        _isShaking = true;
-      });
-
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          setState(() {
-            _isShaking = false;
-          });
-        }
-      });
-    });
   }
 
   void _moveToNextProfile() {
@@ -1276,16 +1253,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                                 ],
                               );
 
-                              return _ShakeWidget(
-                                isShaking: _isShaking,
-                                child: Transform.translate(
-                                  offset: position,
-                                  child: Transform.rotate(
-                                    angle: _cardRotation,
-                                    child: Opacity(
-                                      opacity: opacity,
-                                      child: cardWithIndicators,
-                                    ),
+                              return Transform.translate(
+                                offset: position,
+                                child: Transform.rotate(
+                                  angle: _cardRotation,
+                                  child: Opacity(
+                                    opacity: opacity,
+                                    child: cardWithIndicators,
                                   ),
                                 ),
                               );
@@ -1439,88 +1413,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Shake animation widget for pass interactions
-class _ShakeWidget extends StatefulWidget {
-  final bool isShaking;
-  final Widget child;
-
-  const _ShakeWidget({
-    required this.isShaking,
-    required this.child,
-  });
-
-  @override
-  State<_ShakeWidget> createState() => _ShakeWidgetState();
-}
-
-class _ShakeWidgetState extends State<_ShakeWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _animation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 10.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 10.0, end: -10.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10.0, end: 10.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 10.0, end: -10.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10.0, end: 0.0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticIn,
-    ));
-  }
-
-  @override
-  void didUpdateWidget(_ShakeWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isShaking && !oldWidget.isShaking) {
-      // Defer animation start to next frame to avoid layout conflicts
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.isShaking) {
-          _controller.forward(from: 0.0);
-        }
-      });
-    } else if (!widget.isShaking && oldWidget.isShaking) {
-      // Stop animation if shaking is turned off - also defer to avoid conflicts
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _controller.stop();
-          _controller.reset();
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.stop();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(_animation.value, 0),
-          child: child,
-        );
-      },
-      child: widget.child,
     );
   }
 }
