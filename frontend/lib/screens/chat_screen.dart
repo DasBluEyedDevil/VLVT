@@ -209,18 +209,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// With reverse:true, position 0 = bottom (newest messages)
+  /// So "near bottom" means near position 0
   bool _isNearBottom() {
     if (!_scrollController.hasClients) return true;
-    return _scrollController.position.maxScrollExtent - _scrollController.position.pixels < 100.0;
+    return _scrollController.position.pixels < 100.0;
   }
 
+  /// With reverse:true, scrolling to "bottom" means scrolling to position 0
   void _scrollToBottom({bool animated = false}) {
     if (!_scrollController.hasClients) return;
-    final extent = _scrollController.position.maxScrollExtent;
     if (animated) {
-      _scrollController.animateTo(extent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     } else {
-      _scrollController.jumpTo(extent);
+      _scrollController.jumpTo(0);
     }
   }
 
@@ -412,7 +414,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final subscriptionService = context.watch<SubscriptionService>();
     final currentUserId = authService.userId;
     final messagesRemaining = subscriptionService.getMessagesRemaining();
-    final showMessagesCounter = subscriptionService.isDemoMode;
+    final showMessagesCounter = subscriptionService.isFreeUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -422,16 +424,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             if (_otherUserProfile?.photos?.isNotEmpty == true)
               Padding(
                 padding: const EdgeInsets.only(right: 10),
-                child: Hero(
-                  tag: 'profile_${_otherUserId!}',
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(
-                      _otherUserProfile!.photos!.first.startsWith('http')
-                          ? _otherUserProfile!.photos!.first
-                          : '${context.read<ProfileApiService>().baseUrl}${_otherUserProfile!.photos!.first}',
+                child: Stack(
+                  children: [
+                    Hero(
+                      tag: 'profile_${_otherUserId!}',
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundImage: CachedNetworkImageProvider(
+                          _otherUserProfile!.photos!.first.startsWith('http')
+                              ? _otherUserProfile!.photos!.first
+                              : '${context.read<ProfileApiService>().baseUrl}${_otherUserProfile!.photos!.first}',
+                        ),
+                      ),
                     ),
-                  ),
+                    // Online status indicator
+                    if (_isOtherUserOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: VlvtColors.success,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: VlvtColors.background,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             Expanded(child: Text(_otherUserProfile?.name ?? 'Chat')),
@@ -497,32 +521,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         Text('Say hi to ${_otherUserProfile?.name ?? 'your match'}!', style: TextStyle(fontSize: 14, color: VlvtColors.textMuted)),
       ]));
     }
+
+    // Build items list: typing indicator (if any) + messages in REVERSE order
+    // With reverse:true, index 0 is at the bottom of the screen
+    // So we need: [typing_indicator (if any), newest_message, ..., oldest_message]
+    final itemCount = _messages!.length + (_otherUserTyping ? 1 : 0);
+
     return RefreshIndicator(
       onRefresh: _refreshMessages,
       child: ListView.builder(
         controller: _scrollController,
+        reverse: true, // CRITICAL: newest at bottom, scroll position 0 = bottom
         padding: const EdgeInsets.all(16),
-        itemCount: _messages!.length + (_otherUserTyping ? 1 : 0),
+        itemCount: itemCount,
         itemBuilder: (context, index) {
-          if (_otherUserTyping && index == _messages!.length) {
+          // With reverse:true, index 0 is the bottom-most item (newest)
+          // Typing indicator should be at the very bottom (index 0 when typing)
+          if (_otherUserTyping && index == 0) {
             return Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(top: 8), // top margin since reversed
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(color: VlvtColors.typingIndicatorBackground, borderRadius: BorderRadius.circular(20)),
                 child: Text('...', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: VlvtColors.typingIndicatorDots, letterSpacing: 2)),
               ),
             );
           }
-          final message = _messages![index];
+
+          // Adjust index to account for typing indicator
+          final messageIndex = _otherUserTyping ? index - 1 : index;
+          // Reverse: index 0 (or 1 if typing) = newest message = last in _messages
+          final reversedIndex = _messages!.length - 1 - messageIndex;
+          final message = _messages![reversedIndex];
           final isCurrentUser = message.senderId == currentUserId;
 
-          // Message grouping logic
-          final previousMessage = index > 0 ? _messages![index - 1] : null;
-          final isSameSender = previousMessage?.senderId == message.senderId;
-          final isCloseInTime = previousMessage != null &&
-              message.timestamp.difference(previousMessage.timestamp).inMinutes < 2;
+          // Message grouping logic (check the message ABOVE in visual order = BELOW in list order)
+          // In reversed list, "previous" visually is the next index
+          final nextMessageIndex = reversedIndex + 1;
+          final previousMessageVisually = nextMessageIndex < _messages!.length ? _messages![nextMessageIndex] : null;
+          final isSameSender = previousMessageVisually?.senderId == message.senderId;
+          final isCloseInTime = previousMessageVisually != null &&
+              message.timestamp.difference(previousMessageVisually.timestamp).inMinutes.abs() < 2;
           final isGrouped = isSameSender && isCloseInTime;
 
           return _buildMessageBubble(message, isCurrentUser, isGrouped: isGrouped);
@@ -534,11 +574,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _buildMessageBubble(Message message, bool isCurrentUser, {bool isGrouped = false}) {
     final isFailed = message.status == MessageStatus.failed;
     // Tighter spacing for grouped messages (same sender, close in time)
-    final bottomMargin = isGrouped ? 4.0 : 12.0;
+    // With reverse:true, we use top margin instead of bottom
+    final topMargin = isGrouped ? 4.0 : 12.0;
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.only(bottom: bottomMargin),
+        margin: EdgeInsets.only(top: topMargin),
         child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
           if (isCurrentUser && isFailed) ...[
             IconButton(icon: const Icon(Icons.refresh, size: 20), color: VlvtColors.error, onPressed: () => _retryMessage(message), tooltip: 'Retry'),

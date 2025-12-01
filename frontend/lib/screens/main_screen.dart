@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../services/auth_service.dart';
@@ -7,6 +8,7 @@ import '../services/profile_api_service.dart';
 import '../models/profile.dart';
 import '../widgets/upgrade_banner.dart';
 import '../widgets/vlvt_loader.dart';
+import '../widgets/gold_shader_mask.dart';
 import '../theme/vlvt_colors.dart';
 import 'discovery_screen.dart';
 import 'matches_screen.dart';
@@ -183,7 +185,7 @@ class MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Builds a frosted glass bottom navigation bar
+  /// Builds a frosted glass bottom navigation bar with metallic gold active state
   Widget _buildFrostedNavBar({
     required int currentIndex,
     required List<BottomNavigationBarItem> items,
@@ -212,7 +214,12 @@ class MainScreenState extends State<MainScreen> {
                   final isSelected = index == currentIndex;
 
                   return GestureDetector(
-                    onTap: () => onTap(index),
+                    onTap: () {
+                      if (index != currentIndex) {
+                        HapticFeedback.selectionClick();
+                      }
+                      onTap(index);
+                    },
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -223,7 +230,7 @@ class MainScreenState extends State<MainScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Icon with optional glow
+                          // Icon with metallic gold shader for selected state
                           Container(
                             decoration: isSelected
                                 ? BoxDecoration(
@@ -236,31 +243,47 @@ class MainScreenState extends State<MainScreen> {
                                     ],
                                   )
                                 : null,
-                            child: IconTheme(
-                              data: IconThemeData(
-                                color: isSelected
-                                    ? VlvtColors.gold
-                                    : VlvtColors.textMuted,
-                                size: 24,
-                              ),
-                              child: item.icon,
-                            ),
+                            child: isSelected
+                                ? GoldShaderMask(
+                                    child: IconTheme(
+                                      data: const IconThemeData(
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      child: item.icon,
+                                    ),
+                                  )
+                                : IconTheme(
+                                    data: IconThemeData(
+                                      color: VlvtColors.textMuted,
+                                      size: 24,
+                                    ),
+                                    child: item.icon,
+                                  ),
                           ),
                           const SizedBox(height: 4),
-                          // Label
-                          Text(
-                            item.label ?? '',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 11,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isSelected
-                                  ? VlvtColors.gold
-                                  : VlvtColors.textMuted,
-                            ),
-                          ),
+                          // Label with metallic gold for selected state
+                          isSelected
+                              ? GoldShaderMask(
+                                  child: Text(
+                                    item.label ?? '',
+                                    style: const TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  item.label ?? '',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: VlvtColors.textMuted,
+                                  ),
+                                ),
                         ],
                       ),
                     ),

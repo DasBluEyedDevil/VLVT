@@ -893,11 +893,34 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                     ),
                   ),
 
-                // Profile Card
+                // Profile Card with depth effect
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: GestureDetector(
+                    child: Stack(
+                      children: [
+                        // Shadow card behind (showing depth - more profiles available)
+                        if (_currentProfileIndex < _filteredProfiles.length - 1)
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            right: 8,
+                            bottom: 0,
+                            child: Card(
+                              elevation: 4,
+                              color: VlvtColors.surface.withValues(alpha: 0.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: VlvtColors.gold.withValues(alpha: 0.15),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Container(), // Empty shadow card
+                            ),
+                          ),
+                        // Main card
+                        GestureDetector(
                       onPanStart: _onPanStart,
                       onPanUpdate: _onPanUpdate,
                       onPanEnd: _onPanEnd,
@@ -990,6 +1013,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                                                                 : '${profileService.baseUrl}$photoUrl',
                                                             fit: BoxFit.cover,
                                                             alignment: _getParallaxAlignment(), // Parallax effect on drag
+                                                            memCacheWidth: 800, // Optimize memory: 400px * 2x DPR
                                                             placeholder: (context, url) => Container(
                                                               color: Colors.white.withValues(alpha: 0.2),
                                                               child: const Center(
@@ -1212,6 +1236,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                         },
                       ),
                     ),
+                      ], // Stack children
+                    ), // Stack
                   ),
                 ),
 
