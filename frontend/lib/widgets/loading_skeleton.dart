@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../constants/spacing.dart';
+import 'vlvt_card.dart';
 
 /// Base shimmer wrapper for skeleton loading
 class SkeletonShimmer extends StatelessWidget {
@@ -56,74 +57,69 @@ class ProfileCardSkeleton extends StatelessWidget {
     return SkeletonShimmer(
       child: Padding(
         padding: Spacing.paddingMd,
-        child: Card(
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: Spacing.borderRadiusLg,
-          ),
-          child: Padding(
-            padding: Spacing.paddingXl,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Profile icon placeholder
-                SkeletonBox(
-                  width: 120,
-                  height: 120,
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                Spacing.verticalLg,
-                // Name and age placeholder
-                SkeletonBox(
-                  width: 200,
-                  height: 32,
-                  borderRadius: Spacing.borderRadiusSm,
-                ),
-                Spacing.verticalMd,
-                // Bio placeholder (3 lines)
-                SkeletonBox(
-                  width: double.infinity,
-                  height: 16,
-                  borderRadius: Spacing.borderRadiusSm,
-                ),
-                Spacing.verticalSm,
-                SkeletonBox(
-                  width: double.infinity,
-                  height: 16,
-                  borderRadius: Spacing.borderRadiusSm,
-                ),
-                Spacing.verticalSm,
-                SkeletonBox(
-                  width: 200,
-                  height: 16,
-                  borderRadius: Spacing.borderRadiusSm,
-                ),
-                Spacing.verticalLg,
-                // Interest chips placeholder
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SkeletonBox(
-                      width: 80,
-                      height: 32,
-                      borderRadius: Spacing.borderRadiusRound,
-                    ),
-                    Spacing.horizontalSm,
-                    SkeletonBox(
-                      width: 100,
-                      height: 32,
-                      borderRadius: Spacing.borderRadiusRound,
-                    ),
-                    Spacing.horizontalSm,
-                    SkeletonBox(
-                      width: 90,
-                      height: 32,
-                      borderRadius: Spacing.borderRadiusRound,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+        child: VlvtSurfaceCard(
+          elevated: true,
+          padding: Spacing.paddingXl,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Profile icon placeholder
+              SkeletonBox(
+                width: 120,
+                height: 120,
+                borderRadius: BorderRadius.circular(60),
+              ),
+              Spacing.verticalLg,
+              // Name and age placeholder
+              SkeletonBox(
+                width: 200,
+                height: 32,
+                borderRadius: Spacing.borderRadiusSm,
+              ),
+              Spacing.verticalMd,
+              // Bio placeholder (3 lines)
+              SkeletonBox(
+                width: double.infinity,
+                height: 16,
+                borderRadius: Spacing.borderRadiusSm,
+              ),
+              Spacing.verticalSm,
+              SkeletonBox(
+                width: double.infinity,
+                height: 16,
+                borderRadius: Spacing.borderRadiusSm,
+              ),
+              Spacing.verticalSm,
+              SkeletonBox(
+                width: 200,
+                height: 16,
+                borderRadius: Spacing.borderRadiusSm,
+              ),
+              Spacing.verticalLg,
+              // Interest chips placeholder
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SkeletonBox(
+                    width: 80,
+                    height: 32,
+                    borderRadius: Spacing.borderRadiusRound,
+                  ),
+                  Spacing.horizontalSm,
+                  SkeletonBox(
+                    width: 100,
+                    height: 32,
+                    borderRadius: Spacing.borderRadiusRound,
+                  ),
+                  Spacing.horizontalSm,
+                  SkeletonBox(
+                    width: 90,
+                    height: 32,
+                    borderRadius: Spacing.borderRadiusRound,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

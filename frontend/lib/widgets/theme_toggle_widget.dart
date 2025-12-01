@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_service.dart';
 import 'vlvt_button.dart';
+import 'vlvt_card.dart';
 
 /// Widget for toggling between light and dark themes
 class ThemeToggleWidget extends StatelessWidget {
@@ -11,7 +12,8 @@ class ThemeToggleWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeService = context.watch<ThemeService>();
 
-    return Card(
+    return VlvtSurfaceCard(
+      padding: EdgeInsets.zero,
       child: ListTile(
         leading: Icon(
           themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,

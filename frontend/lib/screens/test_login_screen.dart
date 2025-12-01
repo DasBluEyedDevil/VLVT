@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../config/app_config.dart';
 import '../theme/vlvt_colors.dart';
 import '../widgets/vlvt_button.dart';
+import '../widgets/vlvt_card.dart';
 
 /// Test Login Screen - DEVELOPMENT ONLY
 /// Provides easy access to test user accounts for testing the app
@@ -314,13 +315,12 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
               padding: const EdgeInsets.all(8),
               itemBuilder: (context, index) {
                 final user = _testUsers[index];
-                return Card(
+                return VlvtSurfaceCard(
                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.zero,
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).brightness == Brightness.dark
-                          ? VlvtColors.primary.withAlpha(77)
-                          : VlvtColors.primary.withAlpha(77),
+                      backgroundColor: VlvtColors.primary.withAlpha(77),
                       child: Text(
                         user.emoji,
                         style: const TextStyle(fontSize: 24),

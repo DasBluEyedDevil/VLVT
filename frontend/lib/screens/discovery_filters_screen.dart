@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/discovery_preferences_service.dart';
 import '../widgets/vlvt_button.dart';
+import '../widgets/vlvt_card.dart';
 
 class DiscoveryFiltersScreen extends StatefulWidget {
   const DiscoveryFiltersScreen({super.key});
@@ -111,45 +112,42 @@ class _DiscoveryFiltersScreenState extends State<DiscoveryFiltersScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '$_minAge - $_maxAge years',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+              VlvtSurfaceCard(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$_minAge - $_maxAge years',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      RangeSlider(
-                        values: RangeValues(
-                          _minAge.toDouble(),
-                          _maxAge.toDouble(),
                         ),
-                        min: 18,
-                        max: 99,
-                        divisions: 81,
-                        labels: RangeLabels(
-                          _minAge.toString(),
-                          _maxAge.toString(),
-                        ),
-                        onChanged: (RangeValues values) {
-                          setState(() {
-                            _minAge = values.start.round();
-                            _maxAge = values.end.round();
-                          });
-                        },
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    RangeSlider(
+                      values: RangeValues(
+                        _minAge.toDouble(),
+                        _maxAge.toDouble(),
                       ),
-                    ],
-                  ),
+                      min: 18,
+                      max: 99,
+                      divisions: 81,
+                      labels: RangeLabels(
+                        _minAge.toString(),
+                        _maxAge.toString(),
+                      ),
+                      onChanged: (RangeValues values) {
+                        setState(() {
+                          _minAge = values.start.round();
+                          _maxAge = values.end.round();
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
 
@@ -161,38 +159,35 @@ class _DiscoveryFiltersScreenState extends State<DiscoveryFiltersScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${_maxDistance.round()} km',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+              VlvtSurfaceCard(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_maxDistance.round()} km',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: _maxDistance,
-                        min: 1,
-                        max: 200,
-                        divisions: 199,
-                        label: '${_maxDistance.round()} km',
-                        onChanged: (double value) {
-                          setState(() {
-                            _maxDistance = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Slider(
+                      value: _maxDistance,
+                      min: 1,
+                      max: 200,
+                      divisions: 199,
+                      label: '${_maxDistance.round()} km',
+                      onChanged: (double value) {
+                        setState(() {
+                          _maxDistance = value;
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
 
@@ -204,46 +199,43 @@ class _DiscoveryFiltersScreenState extends State<DiscoveryFiltersScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selectedInterests.isEmpty
-                            ? 'No interests selected'
-                            : '${_selectedInterests.length} selected',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
+              VlvtSurfaceCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedInterests.isEmpty
+                          ? 'No interests selected'
+                          : '${_selectedInterests.length} selected',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _availableInterests.map((interest) {
-                          final isSelected = _selectedInterests.contains(interest);
-                          return FilterChip(
-                            label: Text(interest),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedInterests.add(interest);
-                                } else {
-                                  _selectedInterests.remove(interest);
-                                }
-                              });
-                            },
-                            selectedColor: Colors.deepPurple.shade200,
-                            checkmarkColor: Colors.white,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableInterests.map((interest) {
+                        final isSelected = _selectedInterests.contains(interest);
+                        return FilterChip(
+                          label: Text(interest),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedInterests.add(interest);
+                              } else {
+                                _selectedInterests.remove(interest);
+                              }
+                            });
+                          },
+                          selectedColor: Colors.deepPurple.shade200,
+                          checkmarkColor: Colors.white,
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
 
