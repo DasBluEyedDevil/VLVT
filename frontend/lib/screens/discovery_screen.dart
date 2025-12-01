@@ -466,21 +466,25 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
       ));
 
       _swipeAnimationController.forward(from: 0).then((_) {
-        // Reset card position
-        setState(() {
-          _cardPosition = Offset.zero;
-          _cardRotation = 0.0;
-        });
-        _swipeAnimationController.reset();
+        // Defer state changes to next frame to avoid layout conflicts
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          // Reset card position
+          setState(() {
+            _cardPosition = Offset.zero;
+            _cardRotation = 0.0;
+          });
+          _swipeAnimationController.reset();
 
-        // Trigger appropriate action with haptic feedback
-        if (swipeRight) {
-          HapticFeedback.mediumImpact();
-          _onLike();
-        } else {
-          HapticFeedback.lightImpact();
-          _onPass();
-        }
+          // Trigger appropriate action with haptic feedback
+          if (swipeRight) {
+            HapticFeedback.mediumImpact();
+            _onLike();
+          } else {
+            HapticFeedback.lightImpact();
+            _onPass();
+          }
+        });
       });
     } else {
       // Snap back to center
@@ -493,11 +497,15 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
       ));
 
       _swipeAnimationController.forward(from: 0).then((_) {
-        setState(() {
-          _cardPosition = Offset.zero;
-          _cardRotation = 0.0;
+        // Defer state changes to next frame to avoid layout conflicts
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _cardPosition = Offset.zero;
+            _cardRotation = 0.0;
+          });
+          _swipeAnimationController.reset();
         });
-        _swipeAnimationController.reset();
       });
     }
   }
@@ -636,6 +644,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
       ),
     );
 
+    if (!mounted) return;
+
     // If filters were changed, reload profiles
     if (result == true) {
       final prefsService = context.read<DiscoveryPreferencesService>();
@@ -723,6 +733,209 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProfileCardContent(Profile profile) {
+    return Card(
+      elevation: 8,
+      color: VlvtColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: VlvtColors.gold.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              VlvtColors.primary.withValues(alpha: 0.4),
+              VlvtColors.surface,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Photo carousel or default icon
+                if (profile.photos != null && profile.photos!.isNotEmpty) ...[
+                  Builder(
+                    builder: (context) {
+                      _initPhotoController(profile.photos!.length);
+                      return Column(
+                        children: [
+                          SizedBox(
+                            height: 300,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: PageView.builder(
+                                controller: _photoPageController,
+                                onPageChanged: (index) {
+                                  // Subtle haptic for photo scroll
+                                  HapticFeedback.selectionClick();
+                                  setState(() {
+                                    _currentPhotoIndex = index;
+                                  });
+                                },
+                                itemCount: profile.photos!.length,
+                                itemBuilder: (context, index) {
+                                  final photoUrl = profile.photos![index];
+                                  final profileService = context.read<ProfileApiService>();
+                                  return Hero(
+                                    tag: 'discovery_${profile.userId}', // Unique tag for discovery screen
+                                    child: CachedNetworkImage(
+                                      imageUrl: photoUrl.startsWith('http')
+                                          ? photoUrl
+                                          : '${profileService.baseUrl}$photoUrl',
+                                      fit: BoxFit.cover,
+                                      alignment: _getParallaxAlignment(), // Parallax effect on drag
+                                      memCacheWidth: 800, // Optimize memory: 400px * 2x DPR
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.white.withValues(alpha: 0.2),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: Colors.white.withValues(alpha: 0.2),
+                                        child: const Icon(
+                                          Icons.broken_image,
+                                          size: 80,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          if (profile.photos!.length > 1) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                profile.photos!.length,
+                                (index) => Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _currentPhotoIndex == index
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ] else
+                  const Icon(
+                    Icons.person,
+                    size: 120,
+                    color: Colors.white,
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  '${profile.name ?? 'Anonymous'}, ${profile.age ?? '?'}',
+                  style: VlvtTextStyles.displayMedium.copyWith(
+                    color: VlvtColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  profile.bio ?? 'No bio available',
+                  textAlign: TextAlign.center,
+                  style: VlvtTextStyles.bodyLarge.copyWith(
+                    color: VlvtColors.textSecondary,
+                  ),
+                ),
+                if (profile.interests != null && profile.interests!.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Interests',
+                    style: VlvtTextStyles.h3.copyWith(
+                      color: VlvtColors.gold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: profile.interests!.map((interest) {
+                      return Chip(
+                        label: Text(interest),
+                        backgroundColor: VlvtColors.gold.withValues(alpha: 0.15),
+                        labelStyle: VlvtTextStyles.labelSmall.copyWith(
+                          color: VlvtColors.gold,
+                        ),
+                        side: BorderSide(
+                          color: VlvtColors.gold.withValues(alpha: 0.3),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+                if (_isExpanded) ...[
+                  const SizedBox(height: 24),
+                  Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.info_outline, color: VlvtColors.textSecondary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'More Info',
+                        style: VlvtTextStyles.labelMedium.copyWith(
+                          color: VlvtColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    profile.distance != null
+                        ? 'Distance: ${LocationService.formatDistance(profile.distance! * 1000)}' // Convert km to meters
+                        : 'Distance: Not available',
+                    style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap card to collapse',
+                    style: VlvtTextStyles.bodySmall.copyWith(color: VlvtColors.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(Profile profile) {
+    return ScaleTransition(
+      scale: _cardAnimation.drive(Tween(begin: 1.0, end: 1.02)),
+      child: _buildProfileCardContent(profile),
     );
   }
 
@@ -967,320 +1180,118 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                           ),
                         // Main card
                         GestureDetector(
-                      onPanStart: _onPanStart,
-                      onPanUpdate: _onPanUpdate,
-                      onPanEnd: _onPanEnd,
-                      onTap: _toggleExpanded,
-                      child: AnimatedBuilder(
-                        // Always listen to the swipe animation controller to avoid listener switching issues
-                        animation: _swipeAnimationController,
-                        builder: (context, child) {
-                          // Use animated position if animating, otherwise use dragged position
-                          final position = _swipeAnimationController.isAnimating
-                              ? _swipeAnimation.value
-                              : _cardPosition;
+                          onPanStart: _onPanStart,
+                          onPanUpdate: _onPanUpdate,
+                          onPanEnd: _onPanEnd,
+                          onTap: _toggleExpanded,
+                          child: AnimatedBuilder(
+                            animation: _swipeAnimationController,
+                            child: _buildProfileCard(profile),
+                            builder: (context, child) {
+                              final position = _swipeAnimationController.isAnimating
+                                  ? _swipeAnimation.value
+                                  : _cardPosition;
 
-                          // Calculate opacity based on swipe distance
-                          final opacity = _isDragging || _swipeAnimationController.isAnimating
-                              ? (1.0 - (position.dx.abs() / 300)).clamp(0.5, 1.0)
-                              : 1.0;
+                              final opacity = _isDragging || _swipeAnimationController.isAnimating
+                                  ? (1.0 - (position.dx.abs() / 300)).clamp(0.5, 1.0)
+                                  : 1.0;
 
-                          return _ShakeWidget(
-                            isShaking: _isShaking,
-                            child: Transform.translate(
-                              offset: position,
-                              child: Transform.rotate(
-                                angle: _cardRotation,
-                                child: Opacity(
-                                  opacity: opacity,
-                                  child: AnimatedBuilder(
-                                  animation: _cardAnimation,
-                                  builder: (context, child) {
-                                    return Card(
-                                      elevation: 8,
-                                      color: VlvtColors.surface,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        side: BorderSide(
-                                          color: VlvtColors.gold.withValues(alpha: 0.3),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    VlvtColors.primary.withValues(alpha: 0.4),
-                                    VlvtColors.surface,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: SingleChildScrollView(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      // Photo carousel or default icon
-                                      if (profile.photos != null && profile.photos!.isNotEmpty) ...[
-                                        Builder(
-                                          builder: (context) {
-                                            _initPhotoController(profile.photos!.length);
-                                            return Column(
-                                              children: [
-                                                SizedBox(
-                                                  height: 300,
-                                                  child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    child: PageView.builder(
-                                                      controller: _photoPageController,
-                                                      onPageChanged: (index) {
-                                                        // Subtle haptic for photo scroll
-                                                        HapticFeedback.selectionClick();
-                                                        setState(() {
-                                                          _currentPhotoIndex = index;
-                                                        });
-                                                      },
-                                                      itemCount: profile.photos!.length,
-                                                      itemBuilder: (context, index) {
-                                                        final photoUrl = profile.photos![index];
-                                                        final profileService = context.read<ProfileApiService>();
-                                                        return Hero(
-                                                          tag: 'discovery_${profile.userId}', // Unique tag for discovery screen
-                                                          child: CachedNetworkImage(
-                                                            imageUrl: photoUrl.startsWith('http')
-                                                                ? photoUrl
-                                                                : '${profileService.baseUrl}$photoUrl',
-                                                            fit: BoxFit.cover,
-                                                            alignment: _getParallaxAlignment(), // Parallax effect on drag
-                                                            memCacheWidth: 800, // Optimize memory: 400px * 2x DPR
-                                                            placeholder: (context, url) => Container(
-                                                              color: Colors.white.withValues(alpha: 0.2),
-                                                              child: const Center(
-                                                                child: CircularProgressIndicator(
-                                                                  color: Colors.white,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            errorWidget: (context, url, error) => Container(
-                                                              color: Colors.white.withValues(alpha: 0.2),
-                                                              child: const Icon(
-                                                                Icons.broken_image,
-                                                                size: 80,
-                                                                color: Colors.white70,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (profile.photos!.length > 1) ...[
-                                                  const SizedBox(height: 12),
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: List.generate(
-                                                      profile.photos!.length,
-                                                      (index) => Container(
-                                                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                                                        width: 8,
-                                                        height: 8,
-                                                        decoration: BoxDecoration(
-                                                          shape: BoxShape.circle,
-                                                          color: _currentPhotoIndex == index
-                                                              ? Colors.white
-                                                              : Colors.white.withValues(alpha: 0.4),
-                                                        ),
-                                                      ),
-                                                    ),
+                              final cardWithIndicators = Stack(
+                                children: [
+                                  child!,
+                                  if (_isDragging || _swipeAnimationController.isAnimating) ...[
+                                    if (position.dx > 50)
+                                      Positioned(
+                                        top: 50,
+                                        left: 30,
+                                        child: Transform.rotate(
+                                          angle: -0.5,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 24,
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: VlvtColors.success,
+                                                width: 4,
+                                              ),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'LIKE',
+                                              style: TextStyle(
+                                                color: VlvtColors.success,
+                                                fontSize: 32,
+                                                fontWeight: FontWeight.bold,
+                                                fontFamily: 'Montserrat',
+                                                shadows: [
+                                                  Shadow(
+                                                    color: Colors.black.withValues(alpha: 0.3),
+                                                    blurRadius: 4,
                                                   ),
                                                 ],
-                                              ],
-                                            );
-                                          },
-                                        ),
-                                      ] else
-                                        const Icon(
-                                          Icons.person,
-                                          size: 120,
-                                          color: Colors.white,
-                                        ),
-                                      const SizedBox(height: 24),
-                                      Text(
-                                        '${profile.name ?? 'Anonymous'}, ${profile.age ?? '?'}',
-                                        style: VlvtTextStyles.displayMedium.copyWith(
-                                          color: VlvtColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        profile.bio ?? 'No bio available',
-                                        textAlign: TextAlign.center,
-                                        style: VlvtTextStyles.bodyLarge.copyWith(
-                                          color: VlvtColors.textSecondary,
-                                        ),
-                                      ),
-                                      if (profile.interests != null && profile.interests!.isNotEmpty) ...[
-                                        const SizedBox(height: 24),
-                                        Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Interests',
-                                          style: VlvtTextStyles.h3.copyWith(
-                                            color: VlvtColors.gold,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                        const SizedBox(height: 12),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          alignment: WrapAlignment.center,
-                                          children: profile.interests!.map((interest) {
-                                            return Chip(
-                                              label: Text(interest),
-                                              backgroundColor: VlvtColors.gold.withValues(alpha: 0.15),
-                                              labelStyle: VlvtTextStyles.labelSmall.copyWith(
-                                                color: VlvtColors.gold,
+                                      ),
+                                    if (position.dx < -50)
+                                      Positioned(
+                                        top: 50,
+                                        right: 30,
+                                        child: Transform.rotate(
+                                          angle: 0.5,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 24,
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: VlvtColors.crimson,
+                                                width: 4,
                                               ),
-                                              side: BorderSide(
-                                                color: VlvtColors.gold.withValues(alpha: 0.3),
-                                              ),
-                                            );
-                                          }).toList(),
-                                        ),
-                                      ],
-                                      if (_isExpanded) ...[
-                                        const SizedBox(height: 24),
-                                        Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.info_outline, color: VlvtColors.textSecondary, size: 20),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'More Info',
-                                              style: VlvtTextStyles.labelMedium.copyWith(
-                                                color: VlvtColors.textSecondary,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'PASS',
+                                              style: TextStyle(
+                                                color: VlvtColors.crimson,
+                                                fontSize: 32,
+                                                fontWeight: FontWeight.bold,
+                                                fontFamily: 'Montserrat',
+                                                shadows: [
+                                                  Shadow(
+                                                    color: Colors.black.withValues(alpha: 0.3),
+                                                    blurRadius: 4,
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          profile.distance != null
-                                              ? 'Distance: ${LocationService.formatDistance(profile.distance! * 1000)}' // Convert km to meters
-                                              : 'Distance: Not available',
-                                          style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.textSecondary),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Tap card to collapse',
-                                          style: VlvtTextStyles.bodySmall.copyWith(color: VlvtColors.textMuted),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                                      ),
+                                  ],
+                                ],
+                              );
 
-                            // Swipe direction indicators
-                            if (_isDragging || _swipeAnimationController.isAnimating) ...[
-                              // LIKE indicator (right swipe - green)
-                              if (position.dx > 50)
-                                Positioned(
-                                  top: 50,
-                                  left: 30,
+                              return _ShakeWidget(
+                                isShaking: _isShaking,
+                                child: Transform.translate(
+                                  offset: position,
                                   child: Transform.rotate(
-                                    angle: -0.5,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: VlvtColors.success,
-                                          width: 4,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        'LIKE',
-                                        style: TextStyle(
-                                          color: VlvtColors.success,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'Montserrat',
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.black.withValues(alpha: 0.3),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                    angle: _cardRotation,
+                                    child: Opacity(
+                                      opacity: opacity,
+                                      child: cardWithIndicators,
                                     ),
                                   ),
                                 ),
-
-                              // PASS indicator (left swipe - red)
-                              if (position.dx < -50)
-                                Positioned(
-                                  top: 50,
-                                  right: 30,
-                                  child: Transform.rotate(
-                                    angle: 0.5,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: VlvtColors.crimson,
-                                          width: 4,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        'PASS',
-                                        style: TextStyle(
-                                          color: VlvtColors.crimson,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'Montserrat',
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.black.withValues(alpha: 0.3),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ],
+                              );
+                            },
+                          ),
                         ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                          );
-                        },
-                      ),
-                    ),
                       ], // Stack children
                     ), // Stack
                   ),
@@ -1475,11 +1486,20 @@ class _ShakeWidgetState extends State<_ShakeWidget>
   void didUpdateWidget(_ShakeWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isShaking && !oldWidget.isShaking) {
-      _controller.forward(from: 0.0);
+      // Defer animation start to next frame to avoid layout conflicts
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.isShaking) {
+          _controller.forward(from: 0.0);
+        }
+      });
     } else if (!widget.isShaking && oldWidget.isShaking) {
-      // Stop animation if shaking is turned off
-      _controller.stop();
-      _controller.reset();
+      // Stop animation if shaking is turned off - also defer to avoid conflicts
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.stop();
+          _controller.reset();
+        }
+      });
     }
   }
 
