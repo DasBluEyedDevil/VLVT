@@ -369,20 +369,20 @@ app.get('/matches/:userId/unread-counts', authMiddleware, generalLimiter, async 
     // Get unread counts for each match
     // A message is unread if it was sent by someone else AND not present in read_receipts table
     const result = await pool.query(
-      `SELECT m.match_id, COUNT(msg.id) as unread_count
+      `SELECT m.id, COUNT(msg.id) as unread_count
        FROM matches m
        LEFT JOIN messages msg ON msg.match_id = m.id AND msg.sender_id != $1
        LEFT JOIN read_receipts rr ON rr.message_id = msg.id AND rr.user_id = $1
        WHERE (m.user_id_1 = $1 OR m.user_id_2 = $1)
          AND msg.id IS NOT NULL
          AND rr.id IS NULL
-       GROUP BY m.match_id`,
+       GROUP BY m.id`,
       [requestedUserId]
     );
 
     const unreadCounts: { [key: string]: number } = {};
     result.rows.forEach(row => {
-      unreadCounts[row.match_id] = parseInt(row.unread_count) || 0;
+      unreadCounts[row.id] = parseInt(row.unread_count) || 0;
     });
 
     res.json({ success: true, unreadCounts });

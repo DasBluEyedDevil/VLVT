@@ -152,7 +152,7 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
         } else {
           // Recipient is offline - send push notification
           const senderProfileResult = await pool.query(
-            'SELECT name FROM profiles WHERE id = $1',
+            'SELECT name FROM profiles WHERE user_id = $1',
             [userId]
           );
 
