@@ -520,11 +520,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
               ),
             ),
 
-            // Status indicator
+            // Status indicator with label
             Positioned(
               top: 8,
+              left: 8,
               right: 8,
-              child: _buildStatusIndicator(entry.status),
+              child: _buildStatusBadge(entry.status),
             ),
           ],
         ),
@@ -532,43 +533,68 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildStatusIndicator(MatchStatus status) {
+  Widget _buildStatusBadge(MatchStatus status) {
     Color bgColor;
     IconData icon;
-    Color iconColor;
+    Color textColor;
+    String label;
 
     switch (status) {
       case MatchStatus.mutual:
         bgColor = VlvtColors.gold;
         icon = Icons.favorite;
-        iconColor = VlvtColors.textOnGold;
+        textColor = VlvtColors.textOnGold;
+        label = "It's a match!";
         break;
       case MatchStatus.likedYou:
         bgColor = VlvtColors.crimson;
         icon = Icons.auto_awesome;
-        iconColor = Colors.white;
+        textColor = Colors.white;
+        label = "Liked you";
         break;
       case MatchStatus.liked:
         bgColor = VlvtColors.success;
         icon = Icons.favorite_border;
-        iconColor = Colors.white;
+        textColor = Colors.white;
+        label = "You liked";
         break;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: bgColor.withValues(alpha: 0.4),
-            blurRadius: 8,
-            spreadRadius: 2,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          width: 100, // Fixed width for consistent badge sizes
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: bgColor.withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(icon, size: 16, color: iconColor),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 12, color: textColor),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Montserrat',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
