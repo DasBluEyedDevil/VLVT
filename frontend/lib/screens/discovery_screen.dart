@@ -64,8 +64,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
 
   // Micro-interaction state
   bool _showHeartParticles = false;
+  int _heartParticleInstanceId = 0; // Stable key for heart particles
   String? _matchOverlayUserName;
   bool? _matchOverlayIsNewMatch;
+  int _overlayInstanceId = 0; // Incremented each new overlay to provide stable key
   final bool _isShaking = false;
 
   @override
@@ -271,13 +273,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
           // Heavy haptic feedback for mutual match
           HapticFeedback.heavyImpact();
 
-          // Show heart particles animation
+          // Show heart particles and match overlay together
           setState(() {
+            _heartParticleInstanceId++; // New heart particles instance
             _showHeartParticles = true;
-          });
-
-          // Show match overlay - it's a new match!
-          setState(() {
+            _overlayInstanceId++; // New overlay instance
             _matchOverlayUserName = profile.name ?? "user";
             _matchOverlayIsNewMatch = true;
           });
@@ -288,13 +288,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
           // Light haptic for like recorded
           HapticFeedback.lightImpact();
 
-          // Show heart particles animation
+          // Show heart particles and liked overlay together
           setState(() {
+            _heartParticleInstanceId++; // New heart particles instance
             _showHeartParticles = true;
-          });
-
-          // Show "liked" overlay (not a match yet)
-          setState(() {
+            _overlayInstanceId++; // New overlay instance
             _matchOverlayUserName = profile.name ?? "user";
             _matchOverlayIsNewMatch = false;
           });
@@ -1398,9 +1396,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                 ),
               ),
 
-            // Heart particles animation
+            // Heart particles animation - use stable key to prevent recreation on unrelated setState calls
             if (_showHeartParticles)
               Positioned.fill(
+                key: ValueKey('heart_particles_$_heartParticleInstanceId'),
                 child: HeartParticleAnimation(
                   onComplete: () {
                     if (mounted) {
@@ -1412,9 +1411,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                 ),
               ),
 
-            // Match overlay
+            // Match overlay - use stable key to prevent recreation on unrelated setState calls
             if (_matchOverlayUserName != null && _matchOverlayIsNewMatch != null)
               Positioned.fill(
+                key: ValueKey('match_overlay_$_overlayInstanceId'),
                 child: MatchOverlay(
                   userName: _matchOverlayUserName!,
                   isNewMatch: _matchOverlayIsNewMatch!,

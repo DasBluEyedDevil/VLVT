@@ -12,6 +12,7 @@ import '../widgets/gold_shader_mask.dart';
 import '../theme/vlvt_colors.dart';
 import 'discovery_screen.dart';
 import 'matches_screen.dart';
+import 'chats_screen.dart';
 import 'profile_screen.dart';
 import 'profile_setup_screen.dart';
 import 'search_screen.dart';
@@ -121,6 +122,7 @@ class MainScreenState extends State<MainScreen> {
           screens = const [
             DiscoveryScreen(),
             MatchesScreen(),
+            ChatsScreen(),
             ProfileScreen(),
           ];
           navItems = const [
@@ -131,6 +133,10 @@ class MainScreenState extends State<MainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.favorite),
               label: 'Matches',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble),
+              label: 'Chats',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person),

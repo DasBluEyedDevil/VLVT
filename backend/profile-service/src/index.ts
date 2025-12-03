@@ -902,6 +902,35 @@ app.get('/swipes/received', authMiddleware, generalLimiter, async (req: Request,
   }
 });
 
+// Get users the current user has liked (sent likes - for matches screen)
+app.get('/swipes/sent', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+
+    const result = await pool.query(
+      `SELECT s.target_user_id, s.created_at, p.name, p.age, p.photos
+       FROM swipes s
+       JOIN profiles p ON p.user_id = s.target_user_id
+       WHERE s.user_id = $1 AND s.action = 'like'
+       ORDER BY s.created_at DESC`,
+      [authenticatedUserId]
+    );
+
+    const likes = result.rows.map(row => ({
+      target_user_id: row.target_user_id,
+      name: row.name,
+      age: row.age,
+      photos: row.photos,
+      created_at: row.created_at
+    }));
+
+    res.json({ success: true, likes });
+  } catch (error) {
+    logger.error('Failed to get sent likes', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to get sent likes' });
+  }
+});
+
 // Seed test profiles endpoint (ONLY FOR DEVELOPMENT/TESTING/BETA)
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
   app.post('/profile/seed-test-profiles', async (req: Request, res: Response) => {

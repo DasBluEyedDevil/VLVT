@@ -1,26 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/auth_service.dart';
 import '../services/chat_api_service.dart';
 import '../services/profile_api_service.dart';
-import '../services/cache_service.dart';
-import '../services/safety_service.dart';
 import '../models/match.dart';
 import '../models/profile.dart';
-import '../models/message.dart';
-import '../utils/date_utils.dart';
-import '../widgets/user_action_sheet.dart';
-import '../widgets/empty_state_widget.dart';
 import '../widgets/vlvt_loader.dart';
-import '../widgets/vlvt_input.dart';
-import '../widgets/vlvt_button.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import 'chat_screen.dart';
 
-enum SortOption { recentActivity, newestMatches, nameAZ }
+/// Match status type for filtering
+enum MatchStatus { mutual, likedYou, liked }
 
+/// Filter type for the matches screen
+enum MatchFilterType { all, mutual, likedYou, liked }
+
+/// Data model for a match entry (combines likes and actual matches)
+class MatchEntry {
+  final String odId;
+  final Profile? profile;
+  final MatchStatus status;
+  final Match? match; // Only for mutual matches
+  final DateTime createdAt;
+
+  MatchEntry({
+    required this.odId,
+    this.profile,
+    required this.status,
+    this.match,
+    required this.createdAt,
+  });
+}
+
+/// MatchesScreen - displays likes activity (who liked you, who you liked, mutual matches)
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
 
@@ -29,22 +44,12 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  // State management
   bool _isLoading = false;
   String? _error;
-  DateTime? _lastUpdated;
 
   // Data
-  List<Match> _matches = [];
-  Map<String, Profile> _profiles = {};
-  Map<String, Message?> _lastMessages = {};
-  Map<String, int> _unreadCounts = {};
-
-  // Filtering and sorting
-  String _searchQuery = '';
-  SortOption _sortOption = SortOption.recentActivity;
-  bool _isSearching = false;
-  final TextEditingController _searchController = TextEditingController();
+  List<MatchEntry> _allEntries = [];
+  MatchFilterType _activeFilter = MatchFilterType.all;
 
   @override
   void initState() {
@@ -52,118 +57,108 @@ class _MatchesScreenState extends State<MatchesScreen> {
     _loadData();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  /// Load all data: matches, profiles, and last messages
-  Future<void> _loadData({bool forceRefresh = false}) async {
-    final authService = context.read<AuthService>();
-    final chatService = context.read<ChatApiService>();
-    final profileService = context.read<ProfileApiService>();
-    final cacheService = context.read<CacheService>();
-    final safetyService = context.read<SafetyService>();
-    final userId = authService.userId;
-
-    if (userId == null) {
-      setState(() {
-        _error = 'User not authenticated';
-        _isLoading = false;
-      });
-      return;
-    }
-
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      // Load blocked users first
-      await safetyService.loadBlockedUsers();
+      final authService = context.read<AuthService>();
+      final profileService = context.read<ProfileApiService>();
+      final chatService = context.read<ChatApiService>();
+      final userId = authService.userId;
 
-      // Step 1: Load matches (from cache or API)
-      List<Match> matches;
-      if (!forceRefresh) {
-        final cachedMatches = cacheService.getCachedMatches(userId);
-        if (cachedMatches != null) {
-          matches = cachedMatches;
-        } else {
-          matches = await chatService.getMatches(userId);
-          cacheService.cacheMatches(userId, matches);
-        }
-      } else {
-        matches = await chatService.getMatches(userId);
-        cacheService.cacheMatches(userId, matches);
+      if (userId == null) {
+        throw Exception('User not authenticated');
       }
 
-      // Step 2: Batch load all profiles (this fixes the N+1 query problem!)
-      final userIds = matches
-          .map((match) => match.getOtherUserId(userId))
-          .toList();
+      final List<MatchEntry> entries = [];
 
-      Map<String, Profile> profiles = {};
-      if (userIds.isNotEmpty) {
-        // Check cache first for each profile
-        final uncachedUserIds = <String>[];
-        for (final uid in userIds) {
-          final cachedProfile = cacheService.getCachedProfile(uid);
-          if (cachedProfile != null && !forceRefresh) {
-            profiles[uid] = cachedProfile;
-          } else {
-            uncachedUserIds.add(uid);
-          }
+      // 1. Get mutual matches
+      final matches = await chatService.getMatches(userId);
+      final matchedUserIds = <String>{};
+
+      for (final match in matches) {
+        final otherUserId = match.getOtherUserId(userId);
+        matchedUserIds.add(otherUserId);
+
+        Profile? profile;
+        try {
+          profile = await profileService.getProfile(otherUserId);
+        } catch (e) {
+          debugPrint('Failed to load profile for $otherUserId: $e');
         }
 
-        // Batch fetch uncached profiles
-        if (uncachedUserIds.isNotEmpty) {
-          final fetchedProfiles = await profileService.batchGetProfiles(uncachedUserIds);
-          profiles.addAll(fetchedProfiles);
-          cacheService.cacheProfiles(fetchedProfiles);
-        }
+        entries.add(MatchEntry(
+          odId: otherUserId,
+          profile: profile,
+          status: MatchStatus.mutual,
+          match: match,
+          createdAt: match.createdAt,
+        ));
       }
 
-      // Step 3: Batch load last messages for preview
-      final matchIds = matches.map((match) => match.id).toList();
-      Map<String, Message?> lastMessages = {};
-      if (matchIds.isNotEmpty) {
-        // Check cache first
-        final uncachedMatchIds = <String>[];
-        for (final matchId in matchIds) {
-          final cachedMessage = cacheService.getCachedLastMessage(matchId);
-          if (cachedMessage != null && !forceRefresh) {
-            lastMessages[matchId] = cachedMessage;
-          } else {
-            uncachedMatchIds.add(matchId);
-          }
-        }
-
-        // Batch fetch uncached last messages
-        if (uncachedMatchIds.isNotEmpty) {
-          final fetchedMessages = await chatService.batchGetLastMessages(uncachedMatchIds);
-          lastMessages.addAll(fetchedMessages);
-          cacheService.cacheLastMessages(fetchedMessages);
-        }
-      }
-
-      // Step 4: Fetch unread message counts
-      Map<String, int> unreadCounts = {};
+      // 2. Get users who liked the current user (received likes)
       try {
-        unreadCounts = await chatService.getUnreadCounts(userId);
+        final receivedLikes = await profileService.getReceivedLikes();
+        for (final like in receivedLikes) {
+          final likerUserId = like['userId'] as String;
+
+          // Skip if already matched
+          if (matchedUserIds.contains(likerUserId)) continue;
+
+          Profile? profile;
+          try {
+            profile = await profileService.getProfile(likerUserId);
+          } catch (e) {
+            debugPrint('Failed to load profile for $likerUserId: $e');
+          }
+
+          entries.add(MatchEntry(
+            odId: likerUserId,
+            profile: profile,
+            status: MatchStatus.likedYou,
+            createdAt: DateTime.tryParse(like['likedAt'] as String? ?? '') ?? DateTime.now(),
+          ));
+        }
       } catch (e) {
-        debugPrint('Failed to fetch unread counts: $e');
-        // Continue without unread counts - not critical
+        debugPrint('Failed to load received likes: $e');
       }
+
+      // 3. Get users the current user liked (sent likes) - requires backend endpoint
+      try {
+        final sentLikes = await profileService.getSentLikes();
+        for (final like in sentLikes) {
+          final targetUserId = like['target_user_id'] as String;
+
+          // Skip if already matched
+          if (matchedUserIds.contains(targetUserId)) continue;
+
+          Profile? profile;
+          try {
+            profile = await profileService.getProfile(targetUserId);
+          } catch (e) {
+            debugPrint('Failed to load profile for $targetUserId: $e');
+          }
+
+          entries.add(MatchEntry(
+            odId: targetUserId,
+            profile: profile,
+            status: MatchStatus.liked,
+            createdAt: DateTime.tryParse(like['created_at'] as String? ?? '') ?? DateTime.now(),
+          ));
+        }
+      } catch (e) {
+        debugPrint('Failed to load sent likes: $e');
+      }
+
+      // Sort by created date (most recent first)
+      entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {
-        _matches = matches;
-        _profiles = profiles;
-        _lastMessages = lastMessages;
-        _unreadCounts = unreadCounts;
+        _allEntries = entries;
         _isLoading = false;
-        _lastUpdated = DateTime.now();
       });
     } catch (e) {
       setState(() {
@@ -173,510 +168,150 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  /// Handle pull-to-refresh
-  Future<void> _handleRefresh() async {
-    await _loadData(forceRefresh: true);
-  }
-
-  /// Get filtered and sorted matches
-  List<Match> _getFilteredAndSortedMatches() {
-    final authService = context.read<AuthService>();
-    final safetyService = context.read<SafetyService>();
-    final userId = authService.userId;
-    if (userId == null) return [];
-
-    var filteredMatches = _matches;
-
-    // Filter out blocked users
-    filteredMatches = filteredMatches.where((match) {
-      final otherUserId = match.getOtherUserId(userId);
-      return !safetyService.isUserBlocked(otherUserId);
-    }).toList();
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      filteredMatches = filteredMatches.where((match) {
-        final otherUserId = match.getOtherUserId(userId);
-        final profile = _profiles[otherUserId];
-        final name = profile?.name?.toLowerCase() ?? '';
-        return name.contains(_searchQuery.toLowerCase());
-      }).toList();
+  List<MatchEntry> get _filteredEntries {
+    if (_activeFilter == MatchFilterType.all) {
+      return _allEntries;
     }
 
-    // Apply sorting
-    switch (_sortOption) {
-      case SortOption.recentActivity:
-        // Sort by last message timestamp (most recent first)
-        filteredMatches.sort((a, b) {
-          final lastMessageA = _lastMessages[a.id];
-          final lastMessageB = _lastMessages[b.id];
-          if (lastMessageA == null && lastMessageB == null) {
-            return b.createdAt.compareTo(a.createdAt);
-          }
-          if (lastMessageA == null) return 1;
-          if (lastMessageB == null) return -1;
-          return lastMessageB.timestamp.compareTo(lastMessageA.timestamp);
-        });
-        break;
-      case SortOption.newestMatches:
-        // Sort by match creation date (newest first)
-        filteredMatches.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case SortOption.nameAZ:
-        // Sort alphabetically by name
-        filteredMatches.sort((a, b) {
-          final profileA = _profiles[a.getOtherUserId(userId)];
-          final profileB = _profiles[b.getOtherUserId(userId)];
-          final nameA = profileA?.name ?? 'User';
-          final nameB = profileB?.name ?? 'User';
-          return nameA.compareTo(nameB);
-        });
-        break;
-    }
-
-    return filteredMatches;
-  }
-
-  /// Show sort options dialog
-  void _showSortDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: VlvtColors.surfaceElevated,
-        title: Text('Sort by', style: VlvtTextStyles.h3.copyWith(color: VlvtColors.gold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSortOption('Recent Activity', SortOption.recentActivity),
-            _buildSortOption('Newest Matches', SortOption.newestMatches),
-            _buildSortOption('Name (A-Z)', SortOption.nameAZ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortOption(String title, SortOption value) {
-    final isSelected = _sortOption == value;
-    return ListTile(
-      title: Text(
-        title,
-        style: VlvtTextStyles.bodyMedium.copyWith(
-          color: isSelected ? VlvtColors.gold : VlvtColors.textPrimary,
-        ),
-      ),
-      leading: Icon(
-        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: isSelected ? VlvtColors.gold : VlvtColors.textMuted,
-      ),
-      onTap: () {
-        setState(() {
-          _sortOption = value;
-        });
-        Navigator.pop(context);
-      },
-    );
-  }
-
-  /// Handle unmatch action
-  Future<void> _handleUnmatch(Match match) async {
-    final authService = context.read<AuthService>();
-    final chatService = context.read<ChatApiService>();
-    final cacheService = context.read<CacheService>();
-    final userId = authService.userId;
-    if (userId == null) return;
-
-    final otherUserId = match.getOtherUserId(userId);
-    final profile = _profiles[otherUserId];
-    final name = profile?.name ?? 'this user';
-
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: VlvtColors.surfaceElevated,
-        title: Text('Unmatch', style: VlvtTextStyles.h2),
-        content: Text(
-          'Are you sure you want to unmatch with $name? This action cannot be undone.',
-          style: VlvtTextStyles.bodyMedium,
-        ),
-        actions: [
-          VlvtButton.text(
-            label: 'Cancel',
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          VlvtButton.danger(
-            label: 'Unmatch',
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    // Optimistically update UI
-    setState(() {
-      _matches.removeWhere((m) => m.id == match.id);
-      _profiles.remove(otherUserId);
-      _lastMessages.remove(match.id);
-    });
-
-    // Show undo snackbar
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unmatched with $name'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () {
-              // Re-add the match
-              setState(() {
-                _matches.add(match);
-                if (profile != null) {
-                  _profiles[otherUserId] = profile;
-                }
-              });
-            },
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-
-    // Perform API call
-    try {
-      await chatService.unmatch(match.id);
-      cacheService.invalidateMatches(userId);
-      cacheService.invalidateMessages(match.id);
-      cacheService.invalidateLastMessage(match.id);
-    } catch (e) {
-      // If API call fails, show error and restore the match
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to unmatch: $e'),
-            backgroundColor: VlvtColors.crimson,
-          ),
-        );
-        setState(() {
-          _matches.add(match);
-          if (profile != null) {
-            _profiles[otherUserId] = profile;
-          }
-        });
+    return _allEntries.where((entry) {
+      switch (_activeFilter) {
+        case MatchFilterType.mutual:
+          return entry.status == MatchStatus.mutual;
+        case MatchFilterType.likedYou:
+          return entry.status == MatchStatus.likedYou;
+        case MatchFilterType.liked:
+          return entry.status == MatchStatus.liked;
+        case MatchFilterType.all:
+          return true;
       }
-    }
+    }).toList();
   }
 
-  /// Show match action menu
-  void _showMatchActions(Match match) {
-    final authService = context.read<AuthService>();
-    final userId = authService.userId;
-    if (userId == null) return;
-
-    final otherUserId = match.getOtherUserId(userId);
-    final profile = _profiles[otherUserId];
-
-    if (profile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile not available')),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => UserActionSheet(
-        otherUserProfile: profile,
-        match: match,
-        onActionComplete: () {
-          // Refresh the matches list after block/unmatch
-          _loadData(forceRefresh: true);
-        },
-      ),
-    );
-  }
-
-  /// Build match list item
-  Widget _buildMatchItem(Match match, String userId) {
-    final otherUserId = match.getOtherUserId(userId);
-    final profile = _profiles[otherUserId];
-    final name = profile?.name ?? 'User';
-    final age = profile?.age?.toString() ?? '?';
-    final lastMessage = _lastMessages[match.id];
-    final unreadCount = _unreadCounts[match.id] ?? 0;
-
-    String subtitle;
-    if (lastMessage != null) {
-      final messageText = lastMessage.text.length > 50
-          ? '${lastMessage.text.substring(0, 50)}...'
-          : lastMessage.text;
-      subtitle = messageText;
-    } else {
-      subtitle = 'No messages yet';
-    }
-
-    return Dismissible(
-      key: Key(match.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: VlvtColors.crimson,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Unmatch',
-              style: VlvtTextStyles.labelMedium.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.person_remove, color: Colors.white),
-          ],
-        ),
-      ),
-      confirmDismiss: (direction) async {
-        await _handleUnmatch(match);
-        return false; // We handle removal ourselves
-      },
-      child: ListTile(
-        leading: Stack(
-          children: [
-            Hero(
-              tag: 'avatar_$otherUserId', // Consistent tag for hero animation to ChatScreen
-              child: CircleAvatar(
-                backgroundColor: VlvtColors.primary,
-                backgroundImage: profile?.photos?.isNotEmpty == true
-                    ? CachedNetworkImageProvider(
-                        profile!.photos!.first.startsWith('http')
-                            ? profile.photos!.first
-                            : '${context.read<ProfileApiService>().baseUrl}${profile.photos!.first}')
-                    : null,
-                child: profile?.photos?.isNotEmpty == true
-                    ? null
-                    : Text(
-                        name[0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-              ),
-            ),
-            if (unreadCount > 0)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: VlvtColors.gold,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 20,
-                    minHeight: 20,
-                  ),
-                  child: Center(
-                    child: Text(
-                      unreadCount > 9 ? '9+' : unreadCount.toString(),
-                      style: const TextStyle(
-                        color: VlvtColors.textOnGold,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                '$name, $age',
-                style: VlvtTextStyles.bodyLarge.copyWith(
-                  fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
-                  color: VlvtColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: VlvtTextStyles.bodySmall.copyWith(
-                color: lastMessage != null ? VlvtColors.textPrimary : VlvtColors.textSecondary,
-                fontStyle: lastMessage != null ? FontStyle.normal : FontStyle.italic,
-                fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
-              ),
-            ),
-            if (lastMessage != null)
-              Text(
-                formatTimestamp(lastMessage.timestamp),
-                style: VlvtTextStyles.labelSmall.copyWith(
-                  color: VlvtColors.textMuted,
-                ),
-              ),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              formatTimestamp(match.createdAt),
-              style: VlvtTextStyles.labelSmall.copyWith(
-                color: VlvtColors.textMuted,
-              ),
-            ),
-            if (unreadCount > 0)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: VlvtColors.gold,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  unreadCount > 9 ? '9+' : unreadCount.toString(),
-                  style: const TextStyle(
-                    color: VlvtColors.textOnGold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Montserrat',
-                  ),
-                ),
-              ),
-          ],
-        ),
-        onTap: () async {
-          final shouldRefresh = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(match: match),
-            ),
-          );
-          // Refresh if ChatScreen signals data changed (unmatch/block)
-          if (shouldRefresh == true && mounted) {
-            _loadData(forceRefresh: true);
-          }
-        },
-        onLongPress: () => _showMatchActions(match),
-      ),
-    );
-  }
+  int get _mutualCount => _allEntries.where((e) => e.status == MatchStatus.mutual).length;
+  int get _likedYouCount => _allEntries.where((e) => e.status == MatchStatus.likedYou).length;
+  int get _likedCount => _allEntries.where((e) => e.status == MatchStatus.liked).length;
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final userId = authService.userId;
-
-    if (userId == null) {
-      return Scaffold(
-        backgroundColor: VlvtColors.background,
-        appBar: AppBar(
-          backgroundColor: VlvtColors.background,
-          title: Text('Matches', style: VlvtTextStyles.h2),
-        ),
-        body: Center(
-          child: Text('User not authenticated', style: VlvtTextStyles.bodyMedium),
-        ),
-      );
-    }
-
-    final filteredMatches = _getFilteredAndSortedMatches();
-
     return Scaffold(
       backgroundColor: VlvtColors.background,
       body: RefreshIndicator(
         color: VlvtColors.gold,
-        onRefresh: _handleRefresh,
+        onRefresh: _loadData,
         child: CustomScrollView(
           slivers: [
-            // Collapsible SliverAppBar with elegant title
+            // Header
             SliverAppBar(
               expandedHeight: 100.0,
               floating: true,
               pinned: true,
               backgroundColor: VlvtColors.background,
               flexibleSpace: FlexibleSpaceBar(
-                title: _isSearching
-                    ? null
-                    : Text(
-                        'Matches',
-                        style: VlvtTextStyles.h2.copyWith(
-                          fontFamily: 'PlayfairDisplay',
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                title: Text(
+                  'Matches',
+                  style: VlvtTextStyles.h2.copyWith(
+                    fontFamily: 'PlayfairDisplay',
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
                 centerTitle: false,
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
               ),
-              actions: [
-                if (_isSearching)
-                  IconButton(
-                    icon: const Icon(Icons.clear, color: VlvtColors.textSecondary),
-                    onPressed: () {
-                      setState(() {
-                        _isSearching = false;
-                        _searchQuery = '';
-                        _searchController.clear();
-                      });
-                    },
-                  )
-                else ...[
-                  IconButton(
-                    icon: const Icon(Icons.search, color: VlvtColors.gold),
-                    onPressed: () {
-                      setState(() {
-                        _isSearching = true;
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sort, color: VlvtColors.gold),
-                    onPressed: _showSortDialog,
-                  ),
-                ],
-              ],
             ),
-            // Search bar when searching
-            if (_isSearching)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: VlvtInput(
-                    controller: _searchController,
-                    focusNode: FocusNode()..requestFocus(),
-                    hintText: 'Search matches...',
-                    blur: false,
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
+
+            // Stats summary
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  '$_mutualCount matches  •  $_likedYouCount likes you  •  $_likedCount liked',
+                  textAlign: TextAlign.center,
+                  style: VlvtTextStyles.labelMedium.copyWith(
+                    color: VlvtColors.textMuted,
                   ),
                 ),
               ),
+            ),
+
+            // Filter tabs
+            SliverToBoxAdapter(
+              child: _buildFilterTabs(),
+            ),
+
             // Content
-            ..._buildSliverBody(filteredMatches, userId),
+            ..._buildContent(),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildSliverBody(List<Match> filteredMatches, String userId) {
-    // Show loading indicator on initial load
-    if (_isLoading && _matches.isEmpty) {
+  Widget _buildFilterTabs() {
+    final filters = [
+      _FilterTab(type: MatchFilterType.all, label: 'All', icon: Icons.favorite),
+      _FilterTab(type: MatchFilterType.mutual, label: 'Matches', icon: Icons.favorite),
+      _FilterTab(type: MatchFilterType.likedYou, label: 'Likes You', icon: Icons.auto_awesome),
+      _FilterTab(type: MatchFilterType.liked, label: 'You Liked', icon: Icons.favorite_border),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: filters.map((filter) {
+          final isActive = _activeFilter == filter.type;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _activeFilter = filter.type;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isActive ? VlvtColors.gold : VlvtColors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isActive ? VlvtColors.gold : VlvtColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        filter.icon,
+                        size: 14,
+                        color: isActive ? VlvtColors.textOnGold : VlvtColors.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          filter.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Montserrat',
+                            color: isActive ? VlvtColors.textOnGold : VlvtColors.textMuted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  List<Widget> _buildContent() {
+    if (_isLoading) {
       return [
         const SliverFillRemaining(
           child: Center(child: VlvtLoader()),
@@ -684,41 +319,24 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ];
     }
 
-    // Show error state
-    if (_error != null && _matches.isEmpty) {
+    if (_error != null) {
       return [
         SliverFillRemaining(
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 80,
-                  color: VlvtColors.crimson,
-                ),
+                Icon(Icons.error_outline, size: 64, color: VlvtColors.crimson),
                 const SizedBox(height: 16),
                 Text(
                   'Error loading matches',
-                  style: VlvtTextStyles.h2.copyWith(
-                    color: VlvtColors.crimson,
-                  ),
+                  style: VlvtTextStyles.h3.copyWith(color: VlvtColors.crimson),
                 ),
                 const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    style: VlvtTextStyles.bodyMedium.copyWith(
-                      color: VlvtColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                VlvtButton.primary(
-                  label: 'Retry',
-                  onPressed: () => _loadData(forceRefresh: true),
+                Text(
+                  _error!,
+                  style: VlvtTextStyles.bodySmall.copyWith(color: VlvtColors.textSecondary),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -727,68 +345,273 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ];
     }
 
-    // Show empty state (no matches at all)
-    if (_matches.isEmpty) {
+    final entries = _filteredEntries;
+
+    if (entries.isEmpty) {
       return [
         SliverFillRemaining(
-          child: MatchesEmptyState.noMatches(
-            onGoToDiscovery: () {
-              final tabController = DefaultTabController.of(context);
-              tabController.animateTo(0);
-            },
-          ),
+          child: _buildEmptyState(),
         ),
       ];
     }
 
-    // Show "no results" state (filtered results are empty)
-    if (filteredMatches.isEmpty) {
-      return [
-        SliverFillRemaining(
-          child: MatchesEmptyState.noSearchResults(),
-        ),
-      ];
-    }
-
-    // Show matches list with sliver
+    // Grid of match cards
     return [
-      if (_lastUpdated != null)
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            color: VlvtColors.surfaceElevated,
-            child: Center(
-              child: Text(
-                'Updated ${_getRelativeTime(_lastUpdated!)}',
-                style: VlvtTextStyles.labelSmall.copyWith(color: VlvtColors.textMuted),
-              ),
-            ),
+      SliverPadding(
+        padding: const EdgeInsets.all(16),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
           ),
-        ),
-      SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final match = filteredMatches[index];
-            return _buildMatchItem(match, userId);
-          },
-          childCount: filteredMatches.length,
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildMatchCard(entries[index]),
+            childCount: entries.length,
+          ),
         ),
       ),
     ];
   }
 
-  String _getRelativeTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+  Widget _buildEmptyState() {
+    IconData icon;
+    String title;
+    String subtitle;
 
-    if (difference.inSeconds < 60) {
-      return 'just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${difference.inDays}d ago';
+    switch (_activeFilter) {
+      case MatchFilterType.all:
+        icon = Icons.favorite_outline;
+        title = 'No Matches Yet';
+        subtitle = 'Keep swiping to find your perfect match!';
+        break;
+      case MatchFilterType.mutual:
+        icon = Icons.favorite;
+        title = 'No Matches Yet';
+        subtitle = 'When you and someone like each other, they\'ll appear here.';
+        break;
+      case MatchFilterType.likedYou:
+        icon = Icons.auto_awesome;
+        title = 'No Likes Yet';
+        subtitle = 'Complete your profile to attract more likes!';
+        break;
+      case MatchFilterType.liked:
+        icon = Icons.favorite_border;
+        title = 'No Likes Yet';
+        subtitle = 'Swipe right on profiles you like!';
+        break;
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: VlvtColors.textMuted),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: VlvtTextStyles.h2.copyWith(color: VlvtColors.gold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchCard(MatchEntry entry) {
+    final profile = entry.profile;
+    final name = profile?.name ?? 'User';
+    final age = profile?.age?.toString() ?? '?';
+    final bio = profile?.bio ?? '';
+    final photoUrl = profile?.photos?.isNotEmpty == true ? profile!.photos!.first : null;
+
+    return GestureDetector(
+      onTap: () => _handleCardTap(entry),
+      child: Container(
+        decoration: BoxDecoration(
+          color: VlvtColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: VlvtColors.border,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Photo
+            if (photoUrl != null)
+              CachedNetworkImage(
+                imageUrl: photoUrl.startsWith('http')
+                    ? photoUrl
+                    : '${context.read<ProfileApiService>().baseUrl}$photoUrl',
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: VlvtColors.surfaceElevated,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: VlvtColors.gold),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: VlvtColors.surfaceElevated,
+                  child: Icon(Icons.person, size: 48, color: VlvtColors.textMuted),
+                ),
+              )
+            else
+              Container(
+                color: VlvtColors.surfaceElevated,
+                child: Icon(Icons.person, size: 48, color: VlvtColors.textMuted),
+              ),
+
+            // Gradient overlay at bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$name, $age',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Montserrat',
+                      ),
+                    ),
+                    if (bio.isNotEmpty)
+                      Text(
+                        bio,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 12,
+                          fontFamily: 'Montserrat',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Status indicator
+            Positioned(
+              top: 8,
+              right: 8,
+              child: _buildStatusIndicator(entry.status),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator(MatchStatus status) {
+    Color bgColor;
+    IconData icon;
+    Color iconColor;
+
+    switch (status) {
+      case MatchStatus.mutual:
+        bgColor = VlvtColors.gold;
+        icon = Icons.favorite;
+        iconColor = VlvtColors.textOnGold;
+        break;
+      case MatchStatus.likedYou:
+        bgColor = VlvtColors.crimson;
+        icon = Icons.auto_awesome;
+        iconColor = Colors.white;
+        break;
+      case MatchStatus.liked:
+        bgColor = VlvtColors.success;
+        icon = Icons.favorite_border;
+        iconColor = Colors.white;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: bgColor.withValues(alpha: 0.4),
+            blurRadius: 8,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Icon(icon, size: 16, color: iconColor),
+    );
+  }
+
+  void _handleCardTap(MatchEntry entry) async {
+    HapticFeedback.lightImpact();
+
+    if (entry.status == MatchStatus.mutual && entry.match != null) {
+      // Navigate to chat for mutual matches
+      final shouldRefresh = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(match: entry.match!),
+        ),
+      );
+
+      if (shouldRefresh == true && mounted) {
+        _loadData();
+      }
+    } else if (entry.status == MatchStatus.likedYou) {
+      // Show profile of person who liked you
+      // For now, just show a snackbar - could navigate to profile detail
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${entry.profile?.name ?? "Someone"} likes you! Swipe right to match.'),
+          backgroundColor: VlvtColors.crimson,
+        ),
+      );
+    } else if (entry.status == MatchStatus.liked) {
+      // Show profile of person you liked
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Waiting for ${entry.profile?.name ?? "them"} to like you back!'),
+          backgroundColor: VlvtColors.success,
+        ),
+      );
     }
   }
+}
+
+class _FilterTab {
+  final MatchFilterType type;
+  final String label;
+  final IconData icon;
+
+  _FilterTab({required this.type, required this.label, required this.icon});
 }

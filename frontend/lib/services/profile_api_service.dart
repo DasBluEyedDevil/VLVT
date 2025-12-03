@@ -458,4 +458,28 @@ class ProfileApiService extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Get users the current user has liked (sent likes)
+  Future<List<Map<String, dynamic>>> getSentLikes() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/swipes/sent'),
+        headers: _getAuthHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['likes'] != null) {
+          return List<Map<String, dynamic>>.from(data['likes']);
+        } else {
+          throw Exception('Invalid response format');
+        }
+      } else {
+        throw Exception('Failed to get sent likes: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error getting sent likes: $e');
+      rethrow;
+    }
+  }
 }
