@@ -30,6 +30,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _ageController = TextEditingController();
   final _bioController = TextEditingController();
   final _interestController = TextEditingController();
+  final _photoManagerKey = GlobalKey<PhotoManagerWidgetState>();
 
   List<String> _interests = [];
   List<String> _photos = [];
@@ -94,13 +95,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         throw Exception('User not authenticated');
       }
 
+      // Filter out local photo markers from the photos list
+      final uploadedPhotos = _photos.where((p) => !p.startsWith('local:')).toList();
+
       final profile = Profile(
         userId: userId,
         name: _nameController.text.trim(),
         age: int.parse(_ageController.text.trim()),
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
         interests: _interests.isEmpty ? null : _interests,
-        photos: _photos.isEmpty ? null : _photos,
+        photos: uploadedPhotos.isEmpty ? null : uploadedPhotos,
       );
 
       Profile updatedProfile;
@@ -108,6 +112,42 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         updatedProfile = await profileService.updateProfile(profile);
       } else {
         updatedProfile = await profileService.createProfile(profile);
+      }
+
+      // Upload any pending local photos after profile creation
+      if (widget.isFirstTimeSetup && _photoManagerKey.currentState != null) {
+        final pendingPhotos = _photoManagerKey.currentState!.getPendingLocalPhotos();
+        if (pendingPhotos.isNotEmpty) {
+          final uploadedPhotoUrls = <String>[];
+          for (final photoPath in pendingPhotos) {
+            try {
+              final result = await profileService.uploadPhoto(photoPath);
+              if (result['success'] == true && result['photo'] != null) {
+                uploadedPhotoUrls.add(result['photo']['url'] as String);
+              }
+            } catch (e) {
+              debugPrint('Failed to upload photo: $e');
+              // Continue with other photos even if one fails
+            }
+          }
+
+          // Update the profile with the newly uploaded photos
+          if (uploadedPhotoUrls.isNotEmpty) {
+            final currentPhotos = updatedProfile.photos ?? [];
+            updatedProfile = await profileService.updateProfile(
+              Profile(
+                userId: userId,
+                name: updatedProfile.name,
+                age: updatedProfile.age,
+                bio: updatedProfile.bio,
+                interests: updatedProfile.interests,
+                photos: [...currentPhotos, ...uploadedPhotoUrls],
+              ),
+            );
+          }
+
+          _photoManagerKey.currentState!.clearPendingLocalPhotos();
+        }
       }
 
       if (!mounted) return;
@@ -286,6 +326,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   ),
                 const SizedBox(height: 32),
                 PhotoManagerWidget(
+                  key: _photoManagerKey,
                   initialPhotos: _photos,
                   onPhotosChanged: (photos) {
                     setState(() {
@@ -293,6 +334,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     });
                   },
                   maxPhotos: 6,
+                  isFirstTimeSetup: widget.isFirstTimeSetup,
                 ),
                 const SizedBox(height: 32),
                 VlvtButton.primary(

@@ -38,11 +38,11 @@ class Profile {
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
-      'name': name,
-      'age': age,
-      'bio': bio,
-      'photos': photos,
-      'interests': interests,
+      if (name != null) 'name': name,
+      if (age != null) 'age': age,
+      if (bio != null) 'bio': bio,
+      if (photos != null) 'photos': photos,
+      if (interests != null) 'interests': interests,
       if (distance != null) 'distance': distance,
     };
   }

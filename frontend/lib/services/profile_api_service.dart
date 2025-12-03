@@ -136,6 +136,12 @@ class ProfileApiService extends ChangeNotifier {
         }
       } else if (response.statusCode == 400) {
         final data = json.decode(response.body);
+        // Backend returns 'errors' array for validation failures
+        if (data['errors'] != null && data['errors'] is List && (data['errors'] as List).isNotEmpty) {
+          final errors = data['errors'] as List;
+          final messages = errors.map((e) => e['message'] ?? 'Unknown error').join(', ');
+          throw Exception(messages);
+        }
         throw Exception(data['error'] ?? 'Invalid profile data');
       } else {
         throw Exception('Failed to create profile: ${response.statusCode}');

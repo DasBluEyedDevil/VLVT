@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -13,20 +15,26 @@ class PhotoManagerWidget extends StatefulWidget {
   final List<String> initialPhotos;
   final Function(List<String>) onPhotosChanged;
   final int maxPhotos;
+  /// When true, photos are queued locally instead of uploaded immediately.
+  /// Use getPendingLocalPhotos() to retrieve paths for later upload.
+  final bool isFirstTimeSetup;
 
   const PhotoManagerWidget({
     super.key,
     required this.initialPhotos,
     required this.onPhotosChanged,
     this.maxPhotos = 6,
+    this.isFirstTimeSetup = false,
   });
 
   @override
-  State<PhotoManagerWidget> createState() => _PhotoManagerWidgetState();
+  State<PhotoManagerWidget> createState() => PhotoManagerWidgetState();
 }
 
-class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
+class PhotoManagerWidgetState extends State<PhotoManagerWidget> {
   late List<String> _photos;
+  /// Local file paths queued for upload (used in first-time setup mode)
+  final List<String> _pendingLocalPhotos = [];
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
 
@@ -34,6 +42,17 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
   void initState() {
     super.initState();
     _photos = List.from(widget.initialPhotos);
+  }
+
+  /// Returns list of local file paths that need to be uploaded.
+  /// Call this after profile creation to get photos to upload.
+  List<String> getPendingLocalPhotos() => List.unmodifiable(_pendingLocalPhotos);
+
+  /// Clears the pending local photos list after successful upload
+  void clearPendingLocalPhotos() {
+    setState(() {
+      _pendingLocalPhotos.clear();
+    });
   }
 
   Future<void> _pickAndUploadPhoto(ImageSource source) async {
@@ -47,6 +66,25 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
 
       if (image == null) return;
       if (!mounted) return;
+
+      // In first-time setup mode, queue photo locally instead of uploading
+      if (widget.isFirstTimeSetup) {
+        setState(() {
+          _pendingLocalPhotos.add(image.path);
+        });
+        // Notify parent with a special marker for local files
+        widget.onPhotosChanged([..._photos, ..._pendingLocalPhotos.map((p) => 'local:$p')]);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo added - will be uploaded when you save your profile'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
 
       setState(() => _isUploading = true);
 
@@ -178,15 +216,81 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
     );
   }
 
+  /// Builds the appropriate image widget for local or network photos
+  Widget _buildPhotoImage(String photoPath, int index) {
+    // Check if this is a pending local photo
+    final pendingIndex = index - _photos.length;
+    if (pendingIndex >= 0 && pendingIndex < _pendingLocalPhotos.length) {
+      // Local file
+      return Image.file(
+        File(_pendingLocalPhotos[pendingIndex]),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: VlvtColors.surface,
+          child: Icon(Icons.broken_image, color: VlvtColors.textMuted),
+        ),
+      );
+    }
+
+    // Network image (uploaded photo)
+    return Image.network(
+      photoPath.startsWith('http')
+          ? photoPath
+          : '${context.read<ProfileApiService>().baseUrl}$photoPath',
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: VlvtColors.surface,
+        child: Icon(Icons.broken_image, color: VlvtColors.textMuted),
+      ),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: VlvtColors.surface,
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Handles deletion of photos (both pending local and uploaded)
+  void _handlePhotoDelete(int index) {
+    final pendingIndex = index - _photos.length;
+    if (pendingIndex >= 0 && pendingIndex < _pendingLocalPhotos.length) {
+      // Delete pending local photo (no confirmation needed, not uploaded yet)
+      setState(() {
+        _pendingLocalPhotos.removeAt(pendingIndex);
+      });
+      widget.onPhotosChanged([..._photos, ..._pendingLocalPhotos.map((p) => 'local:$p')]);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Photo removed'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } else {
+      // Delete uploaded photo
+      _deletePhoto(_photos[index], index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final canAddMore = _photos.length < widget.maxPhotos;
+    final totalPhotos = _photos.length + _pendingLocalPhotos.length;
+    final canAddMore = totalPhotos < widget.maxPhotos;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Photos (${_photos.length}/${widget.maxPhotos})',
+          'Photos ($totalPhotos/${widget.maxPhotos})',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
@@ -204,9 +308,9 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
             mainAxisSpacing: 8,
             childAspectRatio: 1,
           ),
-          itemCount: canAddMore ? _photos.length + 1 : _photos.length,
+          itemCount: canAddMore ? totalPhotos + 1 : totalPhotos,
           itemBuilder: (context, index) {
-            if (index == _photos.length && canAddMore) {
+            if (index == totalPhotos && canAddMore) {
               // Add photo button
               return GestureDetector(
                 onTap: _isUploading ? null : _showPhotoSourceDialog,
@@ -229,36 +333,19 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
               );
             }
 
+            // Get the photo path (either from _photos or _pendingLocalPhotos)
+            final isLocalPhoto = index >= _photos.length;
+            final photoPath = isLocalPhoto
+                ? _pendingLocalPhotos[index - _photos.length]
+                : _photos[index];
+
             // Photo tile
             return Stack(
               fit: StackFit.expand,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    _photos[index].startsWith('http')
-                        ? _photos[index]
-                        : '${context.read<ProfileApiService>().baseUrl}${_photos[index]}',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: VlvtColors.surface,
-                      child: Icon(Icons.broken_image, color: VlvtColors.textMuted),
-                    ),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: VlvtColors.surface,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  child: _buildPhotoImage(photoPath, index),
                 ),
                 if (index == 0)
                   Positioned(
@@ -276,11 +363,28 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
                       ),
                     ),
                   ),
+                // Show "Pending" badge for local photos not yet uploaded
+                if (isLocalPhoto)
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Pending',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: 4,
                   right: 4,
                   child: GestureDetector(
-                    onTap: () => _deletePhoto(_photos[index], index),
+                    onTap: () => _handlePhotoDelete(index),
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
@@ -295,7 +399,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
             );
           },
         ),
-        if (_photos.isEmpty)
+        if (_photos.isEmpty && _pendingLocalPhotos.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
