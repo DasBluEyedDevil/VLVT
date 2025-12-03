@@ -16,25 +16,18 @@ class PaywallScreen extends StatefulWidget {
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
 
-  /// Show RevenueCat paywall if configured, otherwise show custom paywall
+  /// Show custom themed paywall (uses RevenueCat for purchases if configured)
   static Future<void> show(BuildContext context, {String? source}) async {
-    final subscriptionService = context.read<SubscriptionService>();
-
     // Track paywall view
     AnalyticsService.logPaywallViewed(source: source);
 
-    if (subscriptionService.isRevenueCatConfigured) {
-      // Use RevenueCat's native paywall
-      await subscriptionService.presentPaywall();
-    } else {
-      // Fallback to custom paywall screen
-      if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PaywallScreen(showBackButton: true, source: source),
-          ),
-        );
-      }
+    // Always use our custom themed paywall screen
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PaywallScreen(showBackButton: true, source: source),
+        ),
+      );
     }
   }
 }
@@ -184,8 +177,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         Navigator.of(context).pop();
                       }
                     } else {
-                      // Fallback to native paywall
-                      await subscriptionService.presentPaywall();
+                      // No packages loaded - show error
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Unable to load subscription options. Please try again.')),
+                        );
+                      }
                     }
                   },
                   expanded: true,
