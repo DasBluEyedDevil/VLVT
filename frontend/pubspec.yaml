@@ -24,6 +24,7 @@ dependencies:
   # Authentication
   sign_in_with_apple: ^7.0.1
   google_sign_in: ^7.2.0
+  flutter_web_auth_2: ^4.0.1
   
   # RevenueCat SDK for subscriptions
   purchases_flutter: ^9.9.9

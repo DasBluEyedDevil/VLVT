@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import logger from '../utils/logger';
 
 type EmailProvider = 'console' | 'smtp' | 'sendgrid' | 'resend';
 
@@ -54,7 +55,7 @@ class EmailService {
       const pass = process.env.SMTP_PASS;
 
       if (!host || !user || !pass) {
-        console.error('SMTP configuration incomplete: SMTP_HOST, SMTP_USER, and SMTP_PASS are required. Falling back to console mode.');
+        logger.warn('SMTP configuration incomplete, falling back to console mode');
         config.provider = 'console';
       } else {
         config.smtp = {
@@ -68,7 +69,7 @@ class EmailService {
       const apiKey = process.env.SENDGRID_API_KEY;
 
       if (!apiKey) {
-        console.error('SendGrid configuration incomplete: SENDGRID_API_KEY is required. Falling back to console mode.');
+        logger.warn('SendGrid configuration incomplete, falling back to console mode');
         config.provider = 'console';
       } else {
         config.sendgrid = {
@@ -79,7 +80,7 @@ class EmailService {
       const apiKey = process.env.RESEND_API_KEY;
 
       if (!apiKey) {
-        console.error('Resend configuration incomplete: RESEND_API_KEY is required. Falling back to console mode.');
+        logger.warn('Resend configuration incomplete, falling back to console mode');
         config.provider = 'console';
       } else {
         config.resend = {
@@ -133,17 +134,17 @@ class EmailService {
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
       if (this.config.provider === 'console') {
-        console.log('\n=== EMAIL (Console Mode) ===');
-        console.log('To:', options.to);
-        console.log('Subject:', options.subject);
-        console.log('Text:', options.text || 'No text version');
-        console.log('HTML:', options.html);
-        console.log('===========================\n');
+        logger.info('EMAIL (Console Mode)', {
+          to: options.to,
+          subject: options.subject,
+          text: options.text || 'No text version',
+          htmlLength: options.html.length
+        });
         return true;
       }
 
       if (!this.transporter) {
-        console.error('Email transporter not initialized');
+        logger.error('Email transporter not initialized');
         return false;
       }
 
@@ -155,10 +156,10 @@ class EmailService {
         html: options.html,
       });
 
-      console.log(`Email sent successfully to ${options.to}`);
+      logger.info('Email sent successfully', { to: options.to });
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
+      logger.error('Error sending email', { error, to: options.to });
       return false;
     }
   }

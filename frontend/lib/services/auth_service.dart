@@ -359,12 +359,13 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Sign in with Instagram - returns either auth data or needsEmail flag
-  Future<Map<String, dynamic>> signInWithInstagram(String accessToken) async {
+  /// Accepts either an authorization code (preferred) or access token
+  Future<Map<String, dynamic>> signInWithInstagram(String codeOrToken, {bool isCode = true}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/instagram'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'accessToken': accessToken}),
+        body: json.encode(isCode ? {'code': codeOrToken} : {'accessToken': codeOrToken}),
       );
 
       final data = json.decode(response.body);

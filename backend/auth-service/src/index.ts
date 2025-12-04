@@ -710,10 +710,53 @@ app.post('/auth/email/resend-verification', authLimiter, async (req: Request, re
 // Instagram OAuth endpoint
 app.post('/auth/instagram', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { accessToken } = req.body;
+    // Support both authorization code (preferred) and direct access token
+    const { code, accessToken: providedToken } = req.body;
 
-    if (!accessToken) {
-      return res.status(400).json({ success: false, error: 'accessToken is required' });
+    if (!code && !providedToken) {
+      return res.status(400).json({ success: false, error: 'Authorization code or access token is required' });
+    }
+
+    let accessToken = providedToken;
+
+    // If authorization code is provided, exchange it for access token
+    if (code) {
+      const clientId = process.env.INSTAGRAM_CLIENT_ID;
+      const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
+      const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || 'https://getvlvt.vip/auth/instagram/callback';
+
+      if (!clientId || !clientSecret) {
+        logger.error('Instagram OAuth not configured: missing INSTAGRAM_CLIENT_ID or INSTAGRAM_CLIENT_SECRET');
+        return res.status(500).json({ success: false, error: 'Instagram authentication not configured' });
+      }
+
+      // Exchange authorization code for access token
+      const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+          code: code,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logger.error('Failed to exchange Instagram code for token', { error: errorData });
+        return res.status(401).json({ success: false, error: 'Failed to authenticate with Instagram' });
+      }
+
+      const tokenData = await tokenResponse.json() as { access_token?: string };
+      accessToken = tokenData.access_token;
+
+      if (!accessToken) {
+        return res.status(401).json({ success: false, error: 'No access token received from Instagram' });
+      }
     }
 
     // Verify Instagram token and get user info

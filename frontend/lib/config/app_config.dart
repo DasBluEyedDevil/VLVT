@@ -18,6 +18,25 @@ class AppConfig {
     defaultValue: '', // Empty in development, must be set in production
   );
 
+  /// Instagram OAuth Client ID
+  /// Get this from Facebook Developer Console > Instagram Basic Display
+  static const String instagramClientId = String.fromEnvironment(
+    'INSTAGRAM_CLIENT_ID',
+    defaultValue: '', // Must be set for Instagram auth
+  );
+
+  /// Instagram OAuth Redirect URI
+  /// Must match the redirect URI configured in Facebook Developer Console
+  static const String instagramRedirectUri = String.fromEnvironment(
+    'INSTAGRAM_REDIRECT_URI',
+    defaultValue: 'https://getvlvt.vip/auth/instagram/callback',
+  );
+
+  /// Validate that Instagram Client ID is configured
+  static bool get isInstagramConfigured {
+    return instagramClientId.isNotEmpty;
+  }
+
   /// Validate that Google Client ID is configured (required in production)
   static bool get isGoogleClientIdConfigured {
     return googleClientId.isNotEmpty;
