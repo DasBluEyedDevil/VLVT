@@ -1,22 +1,24 @@
 import 'dart:ui';
-import 'package:flutter/material.dart';
+
 import 'package:flutter/gestures.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
-import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+
 import '../config/app_config.dart';
 import '../constants/spacing.dart';
-import '../widgets/vlvt_input.dart';
-import '../widgets/vlvt_button.dart';
+import '../services/auth_service.dart';
 import '../theme/vlvt_colors.dart';
 import '../theme/vlvt_text_styles.dart';
 import '../utils/error_handler.dart';
+import '../widgets/vlvt_button.dart';
+import '../widgets/vlvt_input.dart';
+import '../widgets/vlvt_loader.dart';
+import 'forgot_password_screen.dart';
+import 'instagram_email_screen.dart';
 import 'legal_document_viewer.dart';
 import 'register_screen.dart';
-import 'forgot_password_screen.dart';
 import 'verification_pending_screen.dart';
-import 'instagram_email_screen.dart';
-import '../widgets/vlvt_loader.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -239,6 +241,9 @@ class _AuthScreenState extends State<AuthScreen>
 
     setState(() => _isLoading = true);
 
+    // Get AuthService reference before async gap to avoid BuildContext issues
+    final authService = context.read<AuthService>();
+
     try {
       // Build Instagram OAuth URL
       final authUrl = Uri.https('api.instagram.com', '/oauth/authorize', {
@@ -264,7 +269,6 @@ class _AuthScreenState extends State<AuthScreen>
 
       // Exchange code for access token via backend
       // Note: The backend handles the token exchange for security
-      final authService = context.read<AuthService>();
       final response = await authService.signInWithInstagram(code);
 
       if (mounted) {
