@@ -9,30 +9,61 @@ const redactEmail = (email: string): string => {
   return `${local[0]}***${local[local.length - 1]}@${domain}`;
 };
 
-// Custom format to redact sensitive information
-const redactSensitiveInfo = winston.format((info) => {
-  // Never log JWT tokens
-  if (info.token) {
-    info.token = '[REDACTED]';
-  }
-  if (info.idToken) {
-    info.idToken = '[REDACTED]';
-  }
-  if (info.identityToken) {
-    info.identityToken = '[REDACTED]';
-  }
-  if (info.authorization) {
-    info.authorization = '[REDACTED]';
+// List of sensitive field names that should be redacted
+const SENSITIVE_FIELDS = [
+  'token', 'idToken', 'identityToken', 'authorization',
+  'accessToken', 'refreshToken', 'tempToken', 'resetToken',
+  'verificationToken', 'password', 'passwordHash', 'password_hash',
+  'newPassword', 'currentPassword', 'secret', 'apiKey', 'api_key',
+  'bearer', 'jwt', 'code', 'clientSecret', 'client_secret'
+];
+
+// Recursively redact sensitive fields in objects
+const redactObject = (obj: any, depth = 0): any => {
+  if (depth > 5 || !obj || typeof obj !== 'object') return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => redactObject(item, depth + 1));
   }
 
-  // Never log passwords
-  if (info.password) {
-    info.password = '[REDACTED]';
+  const redacted: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const lowerKey = key.toLowerCase();
+    if (SENSITIVE_FIELDS.some(field => lowerKey.includes(field.toLowerCase()))) {
+      redacted[key] = '[REDACTED]';
+    } else if (typeof value === 'object' && value !== null) {
+      redacted[key] = redactObject(value, depth + 1);
+    } else if (typeof value === 'string' && value.includes('@')) {
+      // Redact email addresses in string values
+      redacted[key] = redactEmail(value);
+    } else {
+      redacted[key] = value;
+    }
+  }
+  return redacted;
+};
+
+// Custom format to redact sensitive information
+const redactSensitiveInfo = winston.format((info) => {
+  // Redact known sensitive fields
+  for (const field of SENSITIVE_FIELDS) {
+    if (info[field]) {
+      info[field] = '[REDACTED]';
+    }
   }
 
   // Redact email addresses
   if (info.email && typeof info.email === 'string') {
     info.email = redactEmail(info.email);
+  }
+
+  // Recursively redact sensitive data in nested objects (like req.body)
+  if (info.body && typeof info.body === 'object') {
+    info.body = redactObject(info.body);
+  }
+
+  if (info.meta && typeof info.meta === 'object') {
+    info.meta = redactObject(info.meta);
   }
 
   // If the message contains email patterns, redact them

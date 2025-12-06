@@ -59,17 +59,22 @@ export function validateImage(file: Express.Multer.File): { valid: boolean; erro
 /**
  * Process and optimize image
  * Creates thumbnail and optimized versions
+ * Supports both memory storage (file.buffer) and disk storage (file.path)
  */
 export async function processImage(file: Express.Multer.File, userId: string): Promise<ProcessedImage> {
   const photoId = uuidv4();
   const ext = 'jpg'; // Always convert to JPEG for consistency
+
+  // Determine input source: disk storage uses file.path, memory storage uses file.buffer
+  const inputSource = file.path || file.buffer;
+  const usingDiskStorage = !!file.path;
 
   try {
     // Process main image (large size)
     const largeFilename = `${userId}_${photoId}.${ext}`;
     const largePath = path.join(UPLOAD_DIR, largeFilename);
 
-    const largeImage = await sharp(file.buffer)
+    const largeImage = await sharp(inputSource)
       .rotate() // Auto-rotate based on EXIF orientation AND strip all EXIF metadata (including GPS location)
       .resize(IMAGE_SIZES.large.width, IMAGE_SIZES.large.height, {
         fit: 'inside',
@@ -83,7 +88,7 @@ export async function processImage(file: Express.Multer.File, userId: string): P
     const thumbnailFilename = `${userId}_${photoId}_thumb.${ext}`;
     const thumbnailPath = path.join(UPLOAD_DIR, 'thumbnails', thumbnailFilename);
 
-    await sharp(file.buffer)
+    await sharp(inputSource)
       .rotate() // Auto-rotate and strip EXIF from thumbnail too
       .resize(IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.height, {
         fit: 'cover',
@@ -98,7 +103,18 @@ export async function processImage(file: Express.Multer.File, userId: string): P
       originalSize: file.size,
       processedSize: largeImage.size,
       userId,
+      storageType: usingDiskStorage ? 'disk' : 'memory',
     });
+
+    // Clean up temp file if using disk storage
+    if (usingDiskStorage && file.path) {
+      try {
+        await fs.unlink(file.path);
+        logger.debug('Cleaned up temp upload file', { path: file.path });
+      } catch (cleanupError) {
+        logger.warn('Failed to clean up temp upload file', { path: file.path, error: cleanupError });
+      }
+    }
 
     return {
       id: photoId,
@@ -108,6 +124,14 @@ export async function processImage(file: Express.Multer.File, userId: string): P
       processedSize: largeImage.size,
     };
   } catch (error) {
+    // Clean up temp file even on error if using disk storage
+    if (usingDiskStorage && file.path) {
+      try {
+        await fs.unlink(file.path);
+      } catch (cleanupError) {
+        logger.warn('Failed to clean up temp file after error', { path: file.path });
+      }
+    }
     logger.error('Failed to process image', { error, userId });
     throw new Error('Failed to process image');
   }

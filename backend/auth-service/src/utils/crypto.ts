@@ -29,6 +29,28 @@ export function generateResetToken(): { token: string; expires: Date } {
 }
 
 /**
+ * Generate a refresh token with 7-day expiry
+ * Returns both the raw token (to send to client) and the hash (to store in database)
+ */
+export function generateRefreshToken(): { token: string; tokenHash: string; expires: Date } {
+  const token = generateToken(64); // 128-char hex string for extra security
+  const tokenHash = hashToken(token);
+  return {
+    token,
+    tokenHash,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  };
+}
+
+/**
+ * Hash a token using SHA-256 for secure storage
+ * Never store raw refresh tokens in the database
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
  * Check if a token has expired
  */
 export function isTokenExpired(expires: Date): boolean {

@@ -13,7 +13,7 @@ if (process.env.SENTRY_DSN) {
   });
 }
 
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
@@ -22,7 +22,7 @@ import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
 import logger from './utils/logger';
 import { authLimiter, verifyLimiter, generalLimiter } from './middleware/rate-limiter';
-import { generateVerificationToken, generateResetToken, isTokenExpired } from './utils/crypto';
+import { generateVerificationToken, generateResetToken, generateRefreshToken, hashToken, isTokenExpired } from './utils/crypto';
 import { validatePassword, hashPassword, verifyPassword } from './utils/password';
 import { emailService } from './services/email-service';
 import { validateInputMiddleware, validateEmail, validateUserId, validateArray } from './utils/input-validation';
@@ -59,6 +59,14 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Token expiration configuration
+// Access tokens are short-lived for security, refresh tokens are long-lived
+const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes - short-lived for security
+const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+// Admin API key for test endpoints (required in production if ENABLE_TEST_ENDPOINTS=true)
+const TEST_ENDPOINTS_API_KEY = process.env.TEST_ENDPOINTS_API_KEY;
 
 // CORS origin from environment variable
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:19006';
@@ -97,8 +105,86 @@ pool.on('error', (err, client) => {
   });
 });
 
+/**
+ * Helper function to issue access token and refresh token pair
+ * Stores refresh token hash in database for revocation support
+ */
+async function issueTokenPair(
+  userId: string,
+  provider: string,
+  email: string,
+  req: Request
+): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+  // Generate short-lived access token
+  const accessToken = jwt.sign(
+    { userId, provider, email },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRY }
+  );
+
+  // Generate refresh token
+  const { token: refreshToken, tokenHash, expires } = generateRefreshToken();
+
+  // Store refresh token hash in database
+  await pool.query(
+    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      userId,
+      tokenHash,
+      expires,
+      req.headers['user-agent']?.substring(0, 500) || null,
+      req.ip || req.socket.remoteAddress || null
+    ]
+  );
+
+  logger.info('Token pair issued', { userId, provider });
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: 15 * 60 // 15 minutes in seconds
+  };
+}
+
+/**
+ * Middleware to verify admin API key for sensitive test endpoints
+ */
+function requireTestEndpointAuth(req: Request, res: Response, next: NextFunction) {
+  // In non-production without ENABLE_TEST_ENDPOINTS, still allow access for dev convenience
+  if (process.env.NODE_ENV !== 'production' && !TEST_ENDPOINTS_API_KEY) {
+    return next();
+  }
+
+  // In production or when API key is configured, require it
+  const providedKey = req.headers['x-admin-api-key'] as string;
+
+  if (!TEST_ENDPOINTS_API_KEY) {
+    logger.error('TEST_ENDPOINTS_API_KEY not configured but test endpoints enabled in production');
+    return res.status(503).json({
+      success: false,
+      error: 'Test endpoints not properly configured'
+    });
+  }
+
+  if (!providedKey || providedKey !== TEST_ENDPOINTS_API_KEY) {
+    logger.warn('Unauthorized test endpoint access attempt', {
+      ip: req.ip,
+      path: req.path
+    });
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Invalid or missing admin API key'
+    });
+  }
+
+  next();
+}
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  hidePoweredBy: true // Explicitly hide X-Powered-By header
+}));
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,
@@ -127,9 +213,15 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
     // Verify the Apple identity token using apple-signin-auth
     // This properly verifies the token signature against Apple's public keys
     try {
+      // Critical security fix: Require Apple CLIENT_ID, don't use fallback
+      if (!process.env.APPLE_CLIENT_ID) {
+        logger.error('APPLE_CLIENT_ID environment variable is required for Apple Sign-In');
+        return res.status(503).json({ success: false, error: 'Apple Sign-In not configured' });
+      }
+
       const appleIdTokenClaims = await appleSignin.verifyIdToken(identityToken, {
-        // Critical security fix: Enable Apple audience validation
-        audience: process.env.APPLE_CLIENT_ID || 'com.vlvt.dating',
+        // Audience validation with required environment variable
+        audience: process.env.APPLE_CLIENT_ID,
         nonce: 'nonce' // Optional: verify nonce if you passed one during sign-in
       });
 
@@ -200,9 +292,18 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
         }
       }
 
-      const token = jwt.sign({ userId, provider, email }, JWT_SECRET, { expiresIn: '7d' });
+      // Issue short-lived access token + refresh token pair
+      const { accessToken, refreshToken, expiresIn } = await issueTokenPair(userId, provider, email, req);
 
-      res.json({ success: true, token, userId, provider });
+      res.json({
+        success: true,
+        token: accessToken, // For backwards compatibility
+        accessToken,
+        refreshToken,
+        expiresIn,
+        userId,
+        provider
+      });
     } catch (verifyError) {
       logger.error('Apple token verification failed', { error: verifyError });
       return res.status(401).json({ success: false, error: 'Failed to verify Apple identity token' });
@@ -295,9 +396,18 @@ app.post('/auth/google', authLimiter, async (req: Request, res: Response) => {
       }
     }
 
-    const token = jwt.sign({ userId, provider, email }, JWT_SECRET, { expiresIn: '7d' });
+    // Issue short-lived access token + refresh token pair
+    const { accessToken, refreshToken, expiresIn } = await issueTokenPair(userId, provider, email, req);
 
-    res.json({ success: true, token, userId, provider });
+    res.json({
+      success: true,
+      token: accessToken, // For backwards compatibility
+      accessToken,
+      refreshToken,
+      expiresIn,
+      userId,
+      provider
+    });
   } catch (error) {
     logger.error('Google authentication error', { error });
     res.status(500).json({ success: false, error: 'Authentication failed' });
@@ -317,6 +427,153 @@ app.post('/auth/verify', verifyLimiter, (req: Request, res: Response) => {
     res.json({ success: true, decoded });
   } catch (error) {
     res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+});
+
+// Refresh token endpoint - Exchange a valid refresh token for a new access token
+app.post('/auth/refresh', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, error: 'Refresh token is required' });
+    }
+
+    // Hash the provided refresh token to look it up
+    const tokenHash = hashToken(refreshToken);
+
+    // Find the refresh token in the database
+    const result = await pool.query(
+      `SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked_at, u.provider, u.email
+       FROM refresh_tokens rt
+       JOIN users u ON rt.user_id = u.id
+       WHERE rt.token_hash = $1`,
+      [tokenHash]
+    );
+
+    if (result.rows.length === 0) {
+      logger.warn('Refresh attempt with unknown token', { ip: req.ip });
+      return res.status(401).json({ success: false, error: 'Invalid refresh token' });
+    }
+
+    const tokenRecord = result.rows[0];
+
+    // Check if token has been revoked
+    if (tokenRecord.revoked_at) {
+      logger.warn('Refresh attempt with revoked token', {
+        userId: tokenRecord.user_id,
+        ip: req.ip
+      });
+      return res.status(401).json({ success: false, error: 'Refresh token has been revoked' });
+    }
+
+    // Check if token has expired
+    if (new Date() > new Date(tokenRecord.expires_at)) {
+      logger.info('Refresh attempt with expired token', { userId: tokenRecord.user_id });
+      return res.status(401).json({ success: false, error: 'Refresh token has expired' });
+    }
+
+    // Update last_used_at timestamp
+    await pool.query(
+      'UPDATE refresh_tokens SET last_used_at = NOW() WHERE id = $1',
+      [tokenRecord.id]
+    );
+
+    // Generate new short-lived access token (keep same refresh token for now)
+    // Note: For even stronger security, you could rotate refresh tokens here
+    const accessToken = jwt.sign(
+      { userId: tokenRecord.user_id, provider: tokenRecord.provider, email: tokenRecord.email },
+      JWT_SECRET,
+      { expiresIn: ACCESS_TOKEN_EXPIRY }
+    );
+
+    logger.info('Access token refreshed', { userId: tokenRecord.user_id });
+
+    res.json({
+      success: true,
+      accessToken,
+      expiresIn: 15 * 60 // 15 minutes in seconds
+    });
+  } catch (error) {
+    logger.error('Token refresh error', { error });
+    res.status(500).json({ success: false, error: 'Token refresh failed' });
+  }
+});
+
+// Logout endpoint - Revoke refresh token
+app.post('/auth/logout', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      // If no refresh token provided, just acknowledge the logout
+      // (client-side will clear access token)
+      return res.json({ success: true, message: 'Logged out successfully' });
+    }
+
+    // Hash the provided refresh token
+    const tokenHash = hashToken(refreshToken);
+
+    // Revoke the refresh token
+    const result = await pool.query(
+      `UPDATE refresh_tokens
+       SET revoked_at = NOW(), revoked_reason = 'logout'
+       WHERE token_hash = $1 AND revoked_at IS NULL
+       RETURNING user_id`,
+      [tokenHash]
+    );
+
+    if (result.rows.length > 0) {
+      logger.info('User logged out, refresh token revoked', { userId: result.rows[0].user_id });
+    }
+
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    logger.error('Logout error', { error });
+    res.status(500).json({ success: false, error: 'Logout failed' });
+  }
+});
+
+// Logout from all devices - Revoke all refresh tokens for a user
+app.post('/auth/logout-all', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, error: 'Invalid token' });
+    }
+
+    const userId = decoded.userId;
+
+    // Revoke all active refresh tokens for this user
+    const result = await pool.query(
+      `UPDATE refresh_tokens
+       SET revoked_at = NOW(), revoked_reason = 'logout_all'
+       WHERE user_id = $1 AND revoked_at IS NULL
+       RETURNING id`,
+      [userId]
+    );
+
+    logger.info('User logged out from all devices', {
+      userId,
+      tokensRevoked: result.rows.length
+    });
+
+    res.json({
+      success: true,
+      message: 'Logged out from all devices',
+      tokensRevoked: result.rows.length
+    });
+  } catch (error) {
+    logger.error('Logout all error', { error });
+    res.status(500).json({ success: false, error: 'Logout failed' });
   }
 });
 
@@ -497,18 +754,22 @@ app.get('/auth/email/verify', verifyLimiter, async (req: Request, res: Response)
       [credential.user_id]
     );
 
-    // Generate JWT token for auto-login
-    const jwtToken = jwt.sign(
-      { userId: credential.user_id, provider: 'email', email: credential.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+    // Issue short-lived access token + refresh token pair for auto-login
+    const { accessToken, refreshToken, expiresIn } = await issueTokenPair(
+      credential.user_id,
+      'email',
+      credential.email,
+      req
     );
 
     logger.info('Email verified', { userId: credential.user_id });
     res.json({
       success: true,
       message: 'Email verified successfully',
-      token: jwtToken,
+      token: accessToken, // For backwards compatibility
+      accessToken,
+      refreshToken,
+      expiresIn,
       userId: credential.user_id
     });
   } catch (error) {
@@ -556,17 +817,26 @@ app.post('/auth/email/login', authLimiter, async (req: Request, res: Response) =
       });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: credential.user_id, provider: 'email', email: credential.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
     await pool.query('UPDATE users SET updated_at = NOW() WHERE id = $1', [credential.user_id]);
 
+    // Issue short-lived access token + refresh token pair
+    const { accessToken, refreshToken, expiresIn } = await issueTokenPair(
+      credential.user_id,
+      'email',
+      credential.email,
+      req
+    );
+
     logger.info('User logged in', { userId: credential.user_id, provider: 'email' });
-    res.json({ success: true, token, userId: credential.user_id, provider: 'email' });
+    res.json({
+      success: true,
+      token: accessToken, // For backwards compatibility
+      accessToken,
+      refreshToken,
+      expiresIn,
+      userId: credential.user_id,
+      provider: 'email'
+    });
   } catch (error) {
     logger.error('Email login error', { error });
     res.status(500).json({ success: false, error: 'Login failed' });
@@ -790,15 +1060,20 @@ app.post('/auth/instagram', authLimiter, async (req: Request, res: Response) => 
 
       // If they have a verified email, log them in
       if (credential.email && credential.email_verified) {
-        const token = jwt.sign(
-          { userId: credential.user_id, provider: 'instagram', email: credential.email },
-          JWT_SECRET,
-          { expiresIn: '7d' }
+        // Issue short-lived access token + refresh token pair
+        const { accessToken, refreshToken, expiresIn } = await issueTokenPair(
+          credential.user_id,
+          'instagram',
+          credential.email,
+          req
         );
 
         return res.json({
           success: true,
-          token,
+          token: accessToken, // For backwards compatibility
+          accessToken,
+          refreshToken,
+          expiresIn,
           userId: credential.user_id,
           provider: 'instagram'
         });
@@ -948,8 +1223,18 @@ app.post('/auth/instagram/complete', authLimiter, async (req: Request, res: Resp
 // Test login endpoint (ONLY FOR DEVELOPMENT/TESTING/BETA)
 // This bypasses OAuth and allows direct login with any user ID
 // Enable in beta testing with ENABLE_TEST_ENDPOINTS=true
+// SECURITY: Protected by admin API key in production
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
-  app.post('/auth/test-login', async (req: Request, res: Response) => {
+  // Log warning at startup if test endpoints are enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS === 'true') {
+    if (!TEST_ENDPOINTS_API_KEY) {
+      logger.error('CRITICAL: Test endpoints enabled in production without TEST_ENDPOINTS_API_KEY!');
+    } else {
+      logger.warn('Test endpoints enabled in production (protected by admin API key)');
+    }
+  }
+
+  app.post('/auth/test-login', requireTestEndpointAuth, async (req: Request, res: Response) => {
     try {
       const { userId } = req.body;
 
@@ -968,15 +1253,21 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS =
       }
 
       const user = result.rows[0];
-      const token = jwt.sign(
-        { userId: user.id, provider: user.provider, email: user.email },
-        JWT_SECRET,
-        { expiresIn: '7d' }
+
+      // Issue short-lived access token + refresh token pair (same as regular auth)
+      const { accessToken, refreshToken, expiresIn } = await issueTokenPair(
+        user.id,
+        user.provider,
+        user.email,
+        req
       );
 
       res.json({
         success: true,
-        token,
+        token: accessToken, // For backwards compatibility
+        accessToken,
+        refreshToken,
+        expiresIn,
         userId: user.id,
         provider: user.provider,
         email: user.email
@@ -988,7 +1279,8 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS =
   });
 
   // Seed database endpoint (BETA TESTING ONLY)
-  app.post('/auth/seed-test-users', async (req: Request, res: Response) => {
+  // SECURITY: Protected by admin API key in production
+  app.post('/auth/seed-test-users', requireTestEndpointAuth, async (req: Request, res: Response) => {
     try {
       // Inline seed SQL to ensure it's available in deployment
       const seedSQL = `
@@ -1050,7 +1342,8 @@ ON CONFLICT (id) DO UPDATE SET is_active = true, expires_at = NOW() + INTERVAL '
   });
 
   // Initialize database schema endpoint (BETA TESTING ONLY)
-  app.post('/auth/init-database', async (req: Request, res: Response) => {
+  // SECURITY: Protected by admin API key in production
+  app.post('/auth/init-database', requireTestEndpointAuth, async (req: Request, res: Response) => {
     try {
       // Run each statement separately to handle existing tables gracefully
       const statements = [

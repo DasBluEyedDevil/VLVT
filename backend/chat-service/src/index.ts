@@ -54,7 +54,9 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:19006';
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  hidePoweredBy: true // Explicitly hide X-Powered-By header
+}));
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,

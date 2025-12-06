@@ -17,6 +17,9 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { Pool } from 'pg';
 import { authMiddleware } from './middleware/auth';
 import { validateProfile, validateProfileUpdate } from './middleware/validation';
@@ -61,7 +64,9 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:19006';
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  hidePoweredBy: true // Explicitly hide X-Powered-By header
+}));
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,
@@ -73,9 +78,30 @@ app.use(express.json({ limit: '10kb' }));
 // Serve static files (uploaded images)
 app.use('/uploads', express.static('uploads'));
 
-// Configure multer for file uploads (memory storage for processing with sharp)
+// Configure multer for file uploads using disk storage to prevent OOM attacks
+// Files are stored in temp directory and cleaned up after processing
+const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || path.join(os.tmpdir(), 'vlvt-uploads');
+
+// Ensure temp upload directory exists
+if (!fs.existsSync(UPLOAD_TEMP_DIR)) {
+  fs.mkdirSync(UPLOAD_TEMP_DIR, { recursive: true });
+  logger.info('Created temp upload directory', { path: UPLOAD_TEMP_DIR });
+}
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_TEMP_DIR);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename to prevent collisions
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    const ext = path.extname(file.originalname) || '.tmp';
+    cb(null, `upload-${uniqueSuffix}${ext}`);
+  }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: diskStorage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
     files: 1, // Single file per request
