@@ -18,6 +18,9 @@ import '../widgets/premium_gate_dialog.dart';
 import '../widgets/vlvt_input.dart';
 import '../widgets/vlvt_button.dart';
 import '../widgets/vlvt_loader.dart';
+import '../widgets/date_proposal_sheet.dart';
+import '../widgets/date_card.dart';
+import '../services/date_proposal_service.dart';
 import '../theme/vlvt_colors.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -354,6 +357,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  void _showDateProposalSheet() {
+    if (_match == null || _otherUserProfile == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DateProposalSheet(
+        matchName: _otherUserProfile!.name ?? 'them',
+        onSubmit: ({
+          required String placeName,
+          required DateTime proposedDate,
+          required String proposedTime,
+          String? placeAddress,
+          String? note,
+        }) async {
+          Navigator.pop(context);
+
+          final dateProposalService = context.read<DateProposalService>();
+          final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+          final result = await dateProposalService.createProposal(
+            matchId: _match!.id,
+            placeName: placeName,
+            proposedDate: proposedDate,
+            proposedTime: proposedTime,
+            placeAddress: placeAddress,
+            note: note,
+          );
+
+          if (result['success'] == true) {
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(
+                content: Text('Date proposal sent!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text(result['error'] ?? 'Failed to send proposal'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   Future<void> _retryMessage(Message failedMessage) async {
@@ -696,6 +749,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ]),
             ),
           Row(children: [
+            // Calendar button for date proposals
+            IconButton(
+              onPressed: _showDateProposalSheet,
+              icon: const Icon(Icons.calendar_today),
+              color: VlvtColors.gold,
+              iconSize: 24,
+              tooltip: 'Propose a Date',
+            ),
             Expanded(
               child: VlvtInput(
                 controller: _messageController,

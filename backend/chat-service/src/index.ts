@@ -791,6 +791,440 @@ app.post('/fcm/unregister', authMiddleware, generalLimiter, async (req: Request,
   }
 });
 
+// ===== DATE PROPOSAL ENDPOINTS =====
+
+// Helper function to award date completion tickets
+async function awardDateCompletionTicket(userId: string, dateId: string): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO ticket_ledger (user_id, amount, reason, reference_id) VALUES ($1, 1, 'date_completed', $2)`,
+      [userId, dateId]
+    );
+    logger.info('Awarded date completion ticket', { userId, dateId });
+  } catch (error) {
+    logger.error('Failed to award date completion ticket', { error, userId, dateId });
+  }
+}
+
+// Helper function to award referral bonus when referred user completes a date
+async function awardReferralBonus(userId: string, dateId: string): Promise<void> {
+  try {
+    // Check if user was referred by someone
+    const referrerResult = await pool.query(
+      `SELECT referred_by FROM users WHERE id = $1`,
+      [userId]
+    );
+    const referrerId = referrerResult.rows[0]?.referred_by;
+
+    if (referrerId) {
+      await pool.query(
+        `INSERT INTO ticket_ledger (user_id, amount, reason, reference_id) VALUES ($1, 1, 'referral_bonus', $2)`,
+        [referrerId, dateId]
+      );
+      logger.info('Awarded referral bonus ticket', { referrerId, referredUserId: userId, dateId });
+    }
+  } catch (error) {
+    logger.error('Failed to award referral bonus', { error, userId, dateId });
+  }
+}
+
+// Create a date proposal
+app.post('/dates', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const {
+      matchId,
+      placeId,
+      placeName,
+      placeAddress,
+      placeLat,
+      placeLng,
+      proposedDate,
+      proposedTime,
+      note
+    } = req.body;
+
+    // Validate required fields
+    if (!matchId || !placeName || !proposedDate || !proposedTime) {
+      return res.status(400).json({
+        success: false,
+        error: 'matchId, placeName, proposedDate, and proposedTime are required'
+      });
+    }
+
+    // Verify user is part of this match
+    const matchResult = await pool.query(
+      `SELECT user_id_1, user_id_2 FROM matches WHERE id = $1`,
+      [matchId]
+    );
+
+    if (matchResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Match not found' });
+    }
+
+    const match = matchResult.rows[0];
+    if (match.user_id_1 !== authenticatedUserId && match.user_id_2 !== authenticatedUserId) {
+      return res.status(403).json({ success: false, error: 'Not authorized for this match' });
+    }
+
+    // Check if there's already a pending proposal for this match
+    const existingProposal = await pool.query(
+      `SELECT id FROM date_proposals WHERE match_id = $1 AND status = 'pending'`,
+      [matchId]
+    );
+
+    if (existingProposal.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'There is already a pending date proposal for this match'
+      });
+    }
+
+    // Create the proposal
+    const result = await pool.query(
+      `INSERT INTO date_proposals (
+        match_id, proposer_id, place_id, place_name, place_address,
+        place_lat, place_lng, proposed_date, proposed_time, note
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *`,
+      [
+        matchId,
+        authenticatedUserId,
+        placeId || null,
+        placeName,
+        placeAddress || null,
+        placeLat || null,
+        placeLng || null,
+        proposedDate,
+        proposedTime,
+        note || null
+      ]
+    );
+
+    const proposal = result.rows[0];
+
+    logger.info('Date proposal created', {
+      proposalId: proposal.id,
+      matchId,
+      proposerId: authenticatedUserId,
+      placeName,
+      proposedDate
+    });
+
+    res.json({
+      success: true,
+      proposal: {
+        id: proposal.id,
+        matchId: proposal.match_id,
+        proposerId: proposal.proposer_id,
+        placeId: proposal.place_id,
+        placeName: proposal.place_name,
+        placeAddress: proposal.place_address,
+        placeLat: proposal.place_lat,
+        placeLng: proposal.place_lng,
+        proposedDate: proposal.proposed_date,
+        proposedTime: proposal.proposed_time,
+        note: proposal.note,
+        status: proposal.status,
+        createdAt: proposal.created_at
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to create date proposal', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to create date proposal' });
+  }
+});
+
+// Get date proposals for a match
+app.get('/dates/:matchId', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { matchId } = req.params;
+
+    // Verify user is part of this match
+    const matchResult = await pool.query(
+      `SELECT user_id_1, user_id_2 FROM matches WHERE id = $1`,
+      [matchId]
+    );
+
+    if (matchResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Match not found' });
+    }
+
+    const match = matchResult.rows[0];
+    if (match.user_id_1 !== authenticatedUserId && match.user_id_2 !== authenticatedUserId) {
+      return res.status(403).json({ success: false, error: 'Not authorized for this match' });
+    }
+
+    const result = await pool.query(
+      `SELECT dp.*, p.name as proposer_name
+       FROM date_proposals dp
+       JOIN profiles p ON dp.proposer_id = p.user_id
+       WHERE dp.match_id = $1
+       ORDER BY dp.created_at DESC`,
+      [matchId]
+    );
+
+    const proposals = result.rows.map(row => ({
+      id: row.id,
+      matchId: row.match_id,
+      proposerId: row.proposer_id,
+      proposerName: row.proposer_name,
+      placeId: row.place_id,
+      placeName: row.place_name,
+      placeAddress: row.place_address,
+      placeLat: row.place_lat,
+      placeLng: row.place_lng,
+      proposedDate: row.proposed_date,
+      proposedTime: row.proposed_time,
+      note: row.note,
+      status: row.status,
+      respondedAt: row.responded_at,
+      completedAt: row.completed_at,
+      proposerConfirmed: row.proposer_confirmed,
+      recipientConfirmed: row.recipient_confirmed,
+      createdAt: row.created_at
+    }));
+
+    res.json({ success: true, proposals });
+  } catch (error) {
+    logger.error('Failed to get date proposals', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to get date proposals' });
+  }
+});
+
+// Respond to a date proposal (accept/decline)
+app.put('/dates/:id/respond', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { id } = req.params;
+    const { response, counterDate, counterTime } = req.body;
+
+    if (!response || !['accepted', 'declined'].includes(response)) {
+      return res.status(400).json({
+        success: false,
+        error: 'response must be "accepted" or "declined"'
+      });
+    }
+
+    // Get the proposal and verify the user is the recipient
+    const proposalResult = await pool.query(
+      `SELECT dp.*, m.user_id_1, m.user_id_2
+       FROM date_proposals dp
+       JOIN matches m ON dp.match_id = m.id
+       WHERE dp.id = $1`,
+      [id]
+    );
+
+    if (proposalResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Date proposal not found' });
+    }
+
+    const proposal = proposalResult.rows[0];
+
+    // Verify user is part of the match but not the proposer
+    const isInMatch = proposal.user_id_1 === authenticatedUserId || proposal.user_id_2 === authenticatedUserId;
+    if (!isInMatch) {
+      return res.status(403).json({ success: false, error: 'Not authorized for this proposal' });
+    }
+
+    if (proposal.proposer_id === authenticatedUserId) {
+      return res.status(400).json({ success: false, error: 'Cannot respond to your own proposal' });
+    }
+
+    if (proposal.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'Proposal has already been responded to' });
+    }
+
+    // Update the proposal
+    await pool.query(
+      `UPDATE date_proposals SET status = $1, responded_at = NOW(), updated_at = NOW() WHERE id = $2`,
+      [response, id]
+    );
+
+    logger.info('Date proposal response', {
+      proposalId: id,
+      responderId: authenticatedUserId,
+      response
+    });
+
+    // If counter-proposal provided and declined, create new proposal
+    if (response === 'declined' && counterDate && counterTime) {
+      const counterResult = await pool.query(
+        `INSERT INTO date_proposals (
+          match_id, proposer_id, place_id, place_name, place_address,
+          place_lat, place_lng, proposed_date, proposed_time, note
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id`,
+        [
+          proposal.match_id,
+          authenticatedUserId,
+          proposal.place_id,
+          proposal.place_name,
+          proposal.place_address,
+          proposal.place_lat,
+          proposal.place_lng,
+          counterDate,
+          counterTime,
+          'Counter-proposal: How about this time instead?'
+        ]
+      );
+
+      logger.info('Counter-proposal created', {
+        originalProposalId: id,
+        counterProposalId: counterResult.rows[0].id
+      });
+
+      return res.json({
+        success: true,
+        message: 'Proposal declined with counter-offer',
+        counterProposalId: counterResult.rows[0].id
+      });
+    }
+
+    res.json({
+      success: true,
+      message: response === 'accepted' ? 'Date accepted!' : 'Date declined',
+      status: response
+    });
+  } catch (error) {
+    logger.error('Failed to respond to date proposal', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to respond to date proposal' });
+  }
+});
+
+// Confirm a date happened (both users must confirm)
+app.put('/dates/:id/confirm', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { id } = req.params;
+
+    // Get the proposal
+    const proposalResult = await pool.query(
+      `SELECT dp.*, m.user_id_1, m.user_id_2
+       FROM date_proposals dp
+       JOIN matches m ON dp.match_id = m.id
+       WHERE dp.id = $1`,
+      [id]
+    );
+
+    if (proposalResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Date proposal not found' });
+    }
+
+    const proposal = proposalResult.rows[0];
+
+    // Verify user is part of the match
+    const isInMatch = proposal.user_id_1 === authenticatedUserId || proposal.user_id_2 === authenticatedUserId;
+    if (!isInMatch) {
+      return res.status(403).json({ success: false, error: 'Not authorized for this proposal' });
+    }
+
+    if (proposal.status !== 'accepted') {
+      return res.status(400).json({ success: false, error: 'Can only confirm accepted dates' });
+    }
+
+    // Determine if user is proposer or recipient
+    const isProposer = proposal.proposer_id === authenticatedUserId;
+    const updateColumn = isProposer ? 'proposer_confirmed' : 'recipient_confirmed';
+
+    // Check if already confirmed
+    if ((isProposer && proposal.proposer_confirmed) || (!isProposer && proposal.recipient_confirmed)) {
+      return res.status(400).json({ success: false, error: 'You have already confirmed this date' });
+    }
+
+    // Update confirmation
+    await pool.query(
+      `UPDATE date_proposals SET ${updateColumn} = TRUE, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    // Check if both have confirmed
+    const otherConfirmed = isProposer ? proposal.recipient_confirmed : proposal.proposer_confirmed;
+
+    if (otherConfirmed) {
+      // Both confirmed - mark as completed and award tickets
+      await pool.query(
+        `UPDATE date_proposals SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+
+      // Award tickets to both users
+      const otherUserId = proposal.user_id_1 === authenticatedUserId ? proposal.user_id_2 : proposal.user_id_1;
+
+      await Promise.all([
+        awardDateCompletionTicket(authenticatedUserId, id),
+        awardDateCompletionTicket(otherUserId, id),
+        awardReferralBonus(authenticatedUserId, id),
+        awardReferralBonus(otherUserId, id)
+      ]);
+
+      logger.info('Date completed', {
+        proposalId: id,
+        user1: authenticatedUserId,
+        user2: otherUserId
+      });
+
+      return res.json({
+        success: true,
+        message: 'Date confirmed! You both earned a Golden Ticket!',
+        completed: true,
+        ticketAwarded: true
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Your confirmation recorded. Waiting for the other person to confirm.',
+      completed: false
+    });
+  } catch (error) {
+    logger.error('Failed to confirm date', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to confirm date' });
+  }
+});
+
+// Cancel a date proposal
+app.delete('/dates/:id', authMiddleware, generalLimiter, async (req: Request, res: Response) => {
+  try {
+    const authenticatedUserId = req.user!.userId;
+    const { id } = req.params;
+
+    // Get the proposal
+    const proposalResult = await pool.query(
+      `SELECT * FROM date_proposals WHERE id = $1`,
+      [id]
+    );
+
+    if (proposalResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Date proposal not found' });
+    }
+
+    const proposal = proposalResult.rows[0];
+
+    // Only the proposer can cancel
+    if (proposal.proposer_id !== authenticatedUserId) {
+      return res.status(403).json({ success: false, error: 'Only the proposer can cancel' });
+    }
+
+    if (['completed', 'cancelled'].includes(proposal.status)) {
+      return res.status(400).json({ success: false, error: 'Cannot cancel this proposal' });
+    }
+
+    await pool.query(
+      `UPDATE date_proposals SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    logger.info('Date proposal cancelled', { proposalId: id, userId: authenticatedUserId });
+
+    res.json({ success: true, message: 'Date proposal cancelled' });
+  } catch (error) {
+    logger.error('Failed to cancel date proposal', { error, userId: req.user?.userId });
+    res.status(500).json({ success: false, error: 'Failed to cancel date proposal' });
+  }
+});
+
 // Sentry error handler - must be after all routes but before generic error handler
 if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);
