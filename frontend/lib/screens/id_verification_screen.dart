@@ -58,19 +58,19 @@ class _IdVerificationScreenState extends State<IdVerificationScreen> {
             Navigator.of(context).pop(true);
           }
         });
-      } else if (result['status'] == 'pending') {
+      } else if (result['verificationStatus'] == 'declined') {
+        // Previous verification was declined - allow retry
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Your previous verification was declined. Please try again with a valid ID.';
+        });
+      } else if (result['status'] == 'pending' || result['verificationStatus'] == 'pending') {
         setState(() {
           _isLoading = false;
           _isPending = true;
         });
         // Start polling for status updates
         _startPolling();
-      } else if (result['status'] == 'declined' || result['verificationStatus'] == 'declined') {
-        // Previous verification was declined - allow retry
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Your previous verification was declined. Please try again with a valid ID.';
-        });
       } else {
         setState(() {
           _isLoading = false;

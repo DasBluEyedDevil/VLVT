@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -245,12 +246,18 @@ class _AuthScreenState extends State<AuthScreen>
     final authService = context.read<AuthService>();
 
     try {
-      // Build Instagram OAuth URL
+      // Generate cryptographically secure state parameter to prevent CSRF attacks
+      final random = Random.secure();
+      final stateBytes = List<int>.generate(32, (_) => random.nextInt(256));
+      final state = stateBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+      // Build Instagram OAuth URL with state parameter
       final authUrl = Uri.https('api.instagram.com', '/oauth/authorize', {
         'client_id': AppConfig.instagramClientId,
         'redirect_uri': AppConfig.instagramRedirectUri,
         'scope': 'user_profile',
         'response_type': 'code',
+        'state': state,
       });
 
       // Launch OAuth flow
@@ -259,9 +266,15 @@ class _AuthScreenState extends State<AuthScreen>
         callbackUrlScheme: 'vlvt',
       );
 
-      // Extract authorization code from callback URL
+      // Extract authorization code and state from callback URL
       final uri = Uri.parse(result);
       final code = uri.queryParameters['code'];
+      final returnedState = uri.queryParameters['state'];
+
+      // Verify state parameter to prevent CSRF attacks
+      if (returnedState != state) {
+        throw Exception('OAuth state mismatch - possible CSRF attack');
+      }
 
       if (code == null) {
         throw Exception('No authorization code received from Instagram');

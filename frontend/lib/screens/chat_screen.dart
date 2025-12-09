@@ -43,7 +43,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Match? _match;
   List<Message>? _messages;
   bool _isLoading = true;
-  final bool _isSending = false;
+  bool _isSending = false;
   String? _errorMessage;
   Profile? _otherUserProfile;
   String? _otherUserId;
@@ -294,7 +294,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || text.length > _maxCharacters || _match == null) return;
+    if (text.isEmpty || text.length > _maxCharacters || _match == null || _isSending) return;
+
+    setState(() => _isSending = true);
 
     // Get services before async gaps
     final subscriptionService = context.read<SubscriptionService>();
@@ -304,12 +306,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     if (!subscriptionService.canSendMessage()) {
-      if (mounted) PremiumGateDialog.showMessagesLimitReached(context);
+      if (mounted) {
+        setState(() => _isSending = false);
+        PremiumGateDialog.showMessagesLimitReached(context);
+      }
       return;
     }
 
     final currentUserId = authService.userId;
     if (currentUserId == null) {
+      if (mounted) setState(() => _isSending = false);
       scaffoldMessenger.showSnackBar(const SnackBar(content: Text('User not authenticated')));
       return;
     }
@@ -347,6 +353,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         content: text,
         queuedAt: DateTime.now(),
       ));
+      if (mounted) setState(() => _isSending = false);
       scaffoldMessenger.showSnackBar(const SnackBar(
         content: Text('Message queued. Will send when connected.'),
         backgroundColor: Colors.orange,
@@ -361,12 +368,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       await subscriptionService.useMessage();
       if (mounted) {
         setState(() {
+          _isSending = false;
           _messages = _messages!.where((m) => m.id != tempId).toList()..add(sentMessage);
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
+          _isSending = false;
           _messages = _messages!.map((m) => m.id == tempId ? m.copyWith(status: MessageStatus.failed, error: e.toString()) : m).toList();
         });
       }

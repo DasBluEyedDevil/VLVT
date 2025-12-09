@@ -1029,17 +1029,18 @@ app.post('/auth/email/resend-verification', authLimiter, async (req: Request, re
 // Instagram OAuth endpoint
 app.post('/auth/instagram', authLimiter, async (req: Request, res: Response) => {
   try {
-    // Support both authorization code (preferred) and direct access token
-    const { code, accessToken: providedToken } = req.body;
+    // SECURITY: Only accept authorization codes, never direct access tokens
+    // Direct token acceptance allows token injection attacks
+    const { code } = req.body;
 
-    if (!code && !providedToken) {
-      return res.status(400).json({ success: false, error: 'Authorization code or access token is required' });
+    if (!code) {
+      return res.status(400).json({ success: false, error: 'Authorization code is required' });
     }
 
-    let accessToken = providedToken;
+    let accessToken: string | undefined;
 
-    // If authorization code is provided, exchange it for access token
-    if (code) {
+    // Exchange authorization code for access token
+    {
       const clientId = process.env.INSTAGRAM_CLIENT_ID;
       const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
       const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || 'https://getvlvt.vip/auth/instagram/callback';
