@@ -1294,6 +1294,21 @@ app.post('/swipes', authMiddleware, generalLimiter, async (req: Request, res: Re
             // Generate a match ID for deep linking (matches the format used in chat-service)
             const matchId = `match_${Date.now()}`;
 
+            // Create the match record in the database FIRST
+            try {
+              await pool.query(
+                `INSERT INTO matches (id, user_id_1, user_id_2)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT DO NOTHING`,
+                [matchId, authenticatedUserId, targetUserId]
+              );
+              logger.info('Match created from mutual swipe', { matchId, user1: authenticatedUserId, user2: targetUserId });
+            } catch (err) {
+              logger.error('Failed to create match record', { matchId, error: err });
+              // Continue anyway - users already liked each other, notifications should still be sent
+            }
+
+            // THEN send notifications to both users about the match
             // Send notification to current user about matching with target user (fire and forget)
             sendMatchNotification(pool, authenticatedUserId, targetUserProfile.name, matchId).catch(err =>
               logger.error('Failed to send match notification to current user', { userId: authenticatedUserId, error: err })
