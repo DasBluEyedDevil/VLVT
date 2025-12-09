@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>NoBS Dating</string>
+		<string>VLVT</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>nobsdating</string>
+		<string>VLVT</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -49,11 +49,11 @@
 		<true/>
 		<!-- Location permissions for dating app geolocation features -->
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>NoBS Dating needs your location to show you potential matches nearby and calculate distances.</string>
+		<string>VLVT needs your location to show you potential matches nearby and calculate distances.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>NoBS Dating needs your location to show you potential matches nearby and calculate distances.</string>
+		<string>VLVT needs your location to show you potential matches nearby and calculate distances.</string>
 		<key>NSLocationAlwaysUsageDescription</key>
-		<string>NoBS Dating needs your location to show you potential matches nearby and calculate distances.</string>
+		<string>VLVT needs your location to show you potential matches nearby and calculate distances.</string>
 		<!-- Deep link configuration -->
 		<key>CFBundleURLTypes</key>
 		<array>

@@ -242,6 +242,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final chatApiService = context.read<ChatApiService>();
     final profileApiService = context.read<ProfileApiService>();
     final socketService = context.read<SocketService>();
+    final dateProposalService = context.read<DateProposalService>();
     try {
       final currentUserId = authService.userId;
       if (currentUserId == null) throw Exception('User not authenticated');
@@ -258,6 +259,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _messages = results[0] as List<Message>;
         _otherUserProfile = results[1] as Profile;
       });
+
+      // Load date proposals for this match
+      await dateProposalService.loadProposals(_match!.id);
 
       if (socketService.isConnected) {
         final statuses = await socketService.getOnlineStatus([otherUserId]);
@@ -326,6 +330,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: true));
 
+    // If socket is connecting, wait for it (up to 5 seconds)
+    if (!socketService.isConnected && socketService.isConnecting) {
+      for (int i = 0; i < 50; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (socketService.isConnected) break;
+      }
+    }
+
+    // If still not connected (no connection in progress or timed out), queue the message
     if (!socketService.isConnected) {
       await queueService.enqueue(QueuedMessage(
         tempId: tempId,
@@ -575,14 +588,107 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
-        child: Column(
-          children: [
-            Expanded(child: _buildMessagesList(currentUserId)),
-            _buildMessageInput(),
-          ],
+        child: Consumer<DateProposalService>(
+          builder: (context, dateProposalService, child) {
+            final proposals = _match != null
+                ? dateProposalService.getProposalsForMatch(_match!.id)
+                : <DateProposal>[];
+            // Show active proposals (pending or accepted)
+            final activeProposals = proposals
+                .where((p) => p.status == 'pending' || p.status == 'accepted')
+                .toList();
+
+            return Column(
+              children: [
+                // Date proposals card at top
+                if (activeProposals.isNotEmpty)
+                  _buildDateProposalCard(activeProposals.first, currentUserId),
+                Expanded(child: _buildMessagesList(currentUserId)),
+                _buildMessageInput(),
+              ],
+            );
+          },
         ),
       ),
     );
+  }
+
+  Widget _buildDateProposalCard(DateProposal proposal, String? currentUserId) {
+    return DateCard(
+      proposal: proposal,
+      currentUserId: currentUserId ?? '',
+      onAccept: () => _respondToProposal(proposal, 'accepted'),
+      onDecline: () => _respondToProposal(proposal, 'declined'),
+      onConfirm: () => _confirmDate(proposal),
+      onCancel: () => _cancelProposal(proposal),
+    );
+  }
+
+  Future<void> _respondToProposal(DateProposal proposal, String response) async {
+    final dateProposalService = context.read<DateProposalService>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final result = await dateProposalService.respondToProposal(
+      proposalId: proposal.id,
+      matchId: proposal.matchId,
+      response: response,
+    );
+
+    if (result['success'] == true) {
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(response == 'accepted' ? 'Date accepted!' : 'Date declined'),
+        backgroundColor: response == 'accepted' ? VlvtColors.success : null,
+      ));
+    } else {
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(result['error'] ?? 'Failed to respond'),
+        backgroundColor: VlvtColors.error,
+      ));
+    }
+  }
+
+  Future<void> _confirmDate(DateProposal proposal) async {
+    final dateProposalService = context.read<DateProposalService>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final result = await dateProposalService.confirmDate(
+      proposalId: proposal.id,
+      matchId: proposal.matchId,
+    );
+
+    if (result['success'] == true) {
+      final message = result['completed'] == true
+          ? 'Date confirmed! ${result['ticketAwarded'] == true ? 'You earned a Golden Ticket!' : ''}'
+          : 'Confirmed! Waiting for ${_otherUserProfile?.name ?? 'them'} to confirm.';
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: VlvtColors.success,
+      ));
+    } else {
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(result['error'] ?? 'Failed to confirm'),
+        backgroundColor: VlvtColors.error,
+      ));
+    }
+  }
+
+  Future<void> _cancelProposal(DateProposal proposal) async {
+    final dateProposalService = context.read<DateProposalService>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final result = await dateProposalService.cancelProposal(
+      proposalId: proposal.id,
+      matchId: proposal.matchId,
+    );
+
+    if (result['success'] == true) {
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Date proposal cancelled')));
+    } else {
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(result['error'] ?? 'Failed to cancel'),
+        backgroundColor: VlvtColors.error,
+      ));
+    }
   }
 
   Widget _buildMessagesList(String? currentUserId) {

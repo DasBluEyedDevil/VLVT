@@ -114,7 +114,7 @@ class FeedbackService {
     }
 
     final emailPayload = {
-      'to': 'beta@nobsdating.app',
+      'to': 'beta@getvlvt.vip',
       'subject': 'Beta Feedback: ${feedback.type.toString().split('.').last}',
       'body': feedback.toEmailBody(),
       'feedback_data': feedback.toJson(),

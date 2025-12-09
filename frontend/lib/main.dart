@@ -19,6 +19,7 @@ import 'services/analytics_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/message_queue_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/chat_screen.dart';
@@ -124,6 +125,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SubscriptionService()),
         ChangeNotifierProvider(create: (_) => CacheService()),
         ChangeNotifierProvider(create: (_) => DiscoveryPreferencesService()),
+        ChangeNotifierProvider(create: (_) => MessageQueueService()..init()),
         ChangeNotifierProxyProvider<AuthService, ProfileApiService>(
           create: (context) => ProfileApiService(context.read<AuthService>()),
           update: (context, auth, previous) => ProfileApiService(auth),

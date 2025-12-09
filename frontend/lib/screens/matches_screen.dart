@@ -358,7 +358,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     // Grid of match cards
     return [
       SliverPadding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
         sliver: SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,

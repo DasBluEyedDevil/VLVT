@@ -1,6 +1,6 @@
-# nobsdating
+# VLVT
 
-A new Flutter project.
+VLVT Dating - A Flutter dating app.
 
 ## Getting Started
 

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "app" "\0"
-            VALUE "FileDescription", "nobsdating" "\0"
+            VALUE "FileDescription", "VLVT" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "nobsdating" "\0"
+            VALUE "InternalName", "VLVT" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 app. All rights reserved." "\0"
-            VALUE "OriginalFilename", "nobsdating.exe" "\0"
-            VALUE "ProductName", "nobsdating" "\0"
+            VALUE "OriginalFilename", "vlvt.exe" "\0"
+            VALUE "ProductName", "VLVT" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -1,4 +1,4 @@
-package app.nobsdating
+package app.vlvt
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

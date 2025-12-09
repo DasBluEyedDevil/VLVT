@@ -533,7 +533,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              formatTimestamp(match.createdAt),
+              formatTimestamp(lastMessage?.timestamp ?? match.createdAt),
               style: VlvtTextStyles.labelSmall.copyWith(
                 color: VlvtColors.textMuted,
               ),
@@ -559,14 +559,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ],
         ),
         onTap: () async {
-          final shouldRefresh = await Navigator.push<bool>(
+          await Navigator.push<bool>(
             context,
             MaterialPageRoute(
               builder: (context) => ChatScreen(match: match),
             ),
           );
-          // Refresh if ChatScreen signals data changed (unmatch/block)
-          if (shouldRefresh == true && mounted) {
+          // Always refresh last messages when returning from chat
+          if (mounted) {
             _loadData(forceRefresh: true);
           }
         },
