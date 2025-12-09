@@ -36,6 +36,7 @@ import {
 } from './utils/image-handler';
 import { resolvePhotoUrls, uploadToR2, getPresignedUrl } from './utils/r2-client';
 import { RekognitionClient, CompareFacesCommand } from '@aws-sdk/client-rekognition';
+import { initializeFirebase, sendMatchNotification } from './services/fcm-service';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -205,6 +206,9 @@ const GESTURE_PROMPTS = [
 
 // Similarity threshold for face verification (0-100)
 const SIMILARITY_THRESHOLD = parseFloat(process.env.REKOGNITION_SIMILARITY_THRESHOLD || '90');
+
+// Initialize Firebase Admin SDK for push notifications
+initializeFirebase();
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -1274,6 +1278,33 @@ app.post('/swipes', authMiddleware, generalLimiter, async (req: Request, res: Re
           awardFirstMatchTicket(authenticatedUserId),
           awardFirstMatchTicket(targetUserId)
         ]);
+
+        // Send push notifications to both users about the match
+        // Get user names for the notifications
+        const matchProfilesResult = await pool.query(
+          'SELECT user_id, name FROM profiles WHERE user_id IN ($1, $2)',
+          [authenticatedUserId, targetUserId]
+        );
+
+        if (matchProfilesResult.rows.length === 2) {
+          const currentUserProfile = matchProfilesResult.rows.find((p: any) => p.user_id === authenticatedUserId);
+          const targetUserProfile = matchProfilesResult.rows.find((p: any) => p.user_id === targetUserId);
+
+          if (currentUserProfile && targetUserProfile) {
+            // Generate a match ID for deep linking (matches the format used in chat-service)
+            const matchId = `match_${Date.now()}`;
+
+            // Send notification to current user about matching with target user (fire and forget)
+            sendMatchNotification(pool, authenticatedUserId, targetUserProfile.name, matchId).catch(err =>
+              logger.error('Failed to send match notification to current user', { userId: authenticatedUserId, error: err })
+            );
+
+            // Send notification to target user about matching with current user (fire and forget)
+            sendMatchNotification(pool, targetUserId, currentUserProfile.name, matchId).catch(err =>
+              logger.error('Failed to send match notification to target user', { userId: targetUserId, error: err })
+            );
+          }
+        }
       }
     }
 
