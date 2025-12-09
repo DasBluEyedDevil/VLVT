@@ -10,11 +10,13 @@ import 'dart:convert';
 /// Background message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kDebugMode) {
-    print('📬 Background message received: ${message.messageId}');
-    print('   Title: ${message.notification?.title}');
-    print('   Body: ${message.notification?.body}');
-    print('   Data: ${message.data}');
+  // Keep handler minimal to avoid isolate crashes
+  try {
+    if (kDebugMode) {
+      print('Background message received: ${message.messageId}');
+    }
+  } catch (e) {
+    // Silently ignore errors in background handler
   }
 }
 

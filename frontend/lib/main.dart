@@ -54,13 +54,21 @@ void main() async {
     debugPrint('Firebase Analytics initialized');
 
     // Initialize Notification Service
-    final notificationService = NotificationService();
-    await notificationService.initialize();
+    // Defer notification service initialization to avoid startup crashes
+    Future.delayed(const Duration(milliseconds: 500), () async {
+      try {
+        final notificationService = NotificationService();
+        await notificationService.initialize();
 
-    // Set up notification tap handler
-    notificationService.onNotificationTap = (data) {
-      _handleNotificationTap(data);
-    };
+        // Set up notification tap handler
+        notificationService.onNotificationTap = (data) {
+          _handleNotificationTap(data);
+        };
+        debugPrint('Notification service initialized successfully');
+      } catch (e) {
+        debugPrint('Notification service initialization failed: $e');
+      }
+    });
 
     debugPrint('Firebase initialized successfully');
   } catch (e) {

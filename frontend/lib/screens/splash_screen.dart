@@ -17,6 +17,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _pulseAnimation;
+  bool _animationsStarted = false;
 
   @override
   void initState() {
@@ -55,13 +56,22 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Start the animation sequence
+    // Logo animation starts immediately
+    _logoController.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Start the animation sequence after dependencies are available
+    // This ensures context can be used for precacheImage
     _startAnimations();
   }
 
   Future<void> _startAnimations() async {
-    // Start logo animation
-    _logoController.forward();
+    // Prevent multiple calls
+    if (_animationsStarted) return;
+    _animationsStarted = true;
 
     // Pre-cache critical assets in parallel with animation
     final preCacheFuture = _preCacheAssets();
@@ -81,6 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   /// Pre-cache heavy assets used in subsequent screens
   Future<void> _preCacheAssets() async {
+    if (!mounted) return;
     try {
       await Future.wait([
         // Pre-cache the auth screen background
