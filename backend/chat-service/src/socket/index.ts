@@ -25,8 +25,8 @@ export const initializeSocketIO = (httpServer: HttpServer, pool: Pool): SocketSe
     },
     pingTimeout: 60000, // 60 seconds
     pingInterval: 25000, // 25 seconds
-    transports: ['websocket', 'polling'], // Support both for better compatibility
-    allowEIO3: true // Support older Socket.IO clients
+    transports: ['websocket'], // WebSocket only - polling disabled for CSRF protection
+    allowEIO3: false // Disable legacy protocol support for security
   });
 
   logger.info('Socket.IO server initialized', { corsOrigin });

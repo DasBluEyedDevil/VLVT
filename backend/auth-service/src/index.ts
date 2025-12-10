@@ -182,15 +182,38 @@ function requireTestEndpointAuth(req: Request, res: Response, next: NextFunction
   next();
 }
 
-// Security middleware
+// Security middleware with comprehensive headers
 app.use(helmet({
-  hidePoweredBy: true // Explicitly hide X-Powered-By header
+  hidePoweredBy: true,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+
+// CORS configuration - require explicit origin in production
+if (!CORS_ORIGIN && process.env.NODE_ENV === 'production') {
+  logger.error('CORS_ORIGIN not configured in production');
+  process.exit(1);
+}
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-API-Key']
 }));
 app.use(express.json({ limit: '10kb' }));
 
@@ -918,6 +941,8 @@ app.post('/auth/email/forgot', authLimiter, async (req: Request, res: Response) 
     );
 
     if (result.rows.length === 0) {
+      // Add random delay to prevent timing attacks (100-300ms)
+      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
       return res.json(successResponse);
     }
 

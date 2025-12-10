@@ -48,7 +48,8 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    // Explicitly specify allowed algorithms to prevent algorithm confusion attacks
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as {
       userId: string;
       provider: string;
       email: string;

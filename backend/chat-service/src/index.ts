@@ -89,9 +89,32 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
 // CORS origin from environment variable
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:19006';
 
-// Security middleware
+// Require explicit CORS origin in production
+if (!process.env.CORS_ORIGIN && process.env.NODE_ENV === 'production') {
+  logger.error('CORS_ORIGIN not configured in production');
+  process.exit(1);
+}
+
+// Security middleware with comprehensive headers
 app.use(helmet({
-  hidePoweredBy: true // Explicitly hide X-Powered-By header
+  hidePoweredBy: true,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 app.use(cors({
   origin: CORS_ORIGIN,

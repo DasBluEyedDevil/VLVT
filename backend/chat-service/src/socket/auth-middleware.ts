@@ -43,7 +43,8 @@ export const socketAuthMiddleware = (socket: SocketWithAuth, next: (err?: Error)
       return next(new Error('Server configuration error'));
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as AuthToken;
+    // Explicitly specify allowed algorithms to prevent algorithm confusion attacks
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as AuthToken;
 
     // Attach user info to socket
     socket.userId = decoded.userId;
