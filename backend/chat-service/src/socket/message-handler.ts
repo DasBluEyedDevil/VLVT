@@ -79,6 +79,23 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
         return callback?.({ success: false, error: 'Unauthorized' });
       }
 
+      // Determine the recipient
+      const recipientId = match.user_id_1 === userId ? match.user_id_2 : match.user_id_1;
+
+      // Check if either user has blocked the other (safety feature)
+      const blockCheck = await pool.query(
+        `SELECT 1 FROM blocks
+         WHERE (user_id = $1 AND blocked_user_id = $2)
+            OR (user_id = $2 AND blocked_user_id = $1)
+         LIMIT 1`,
+        [userId, recipientId]
+      );
+
+      if (blockCheck.rows.length > 0) {
+        logger.warn('Message blocked - block exists between users', { userId, recipientId, matchId });
+        return callback?.({ success: false, error: 'Unable to send message' });
+      }
+
       // Check subscription limits (prevent bypass of client-side paywall)
       const subscriptionCheck = await pool.query(
         `SELECT is_active FROM user_subscriptions
@@ -130,10 +147,8 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
         tempId
       };
 
-      // Determine recipient
-      const recipientId = match.user_id_1 === userId ? match.user_id_2 : match.user_id_1;
-
       // Send acknowledgment to sender IMMEDIATELY after insert succeeds
+      // Note: recipientId already calculated above during block check
       // This ensures the client knows the message was saved
       callback?.({ success: true, message: messageResponse });
 
@@ -158,7 +173,7 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
 
           if (senderProfileResult.rows.length > 0) {
             const senderName = senderProfileResult.rows[0].name;
-            sendMessageNotification(pool, recipientId, senderName, text, matchId).catch(err =>
+            sendMessageNotification(pool, recipientId, userId, senderName, text, matchId).catch(err =>
               logger.error('Failed to send message push notification', { recipientId, error: err })
             );
           }
@@ -338,6 +353,7 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
 
   /**
    * Handle getting online status of matches
+   * Security: Only return status for users the requester has an active match with
    */
   socket.on('get_online_status', async (data: { userIds: string[] }, callback) => {
     try {
@@ -347,10 +363,32 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
         return callback?.({ success: false, error: 'User IDs required' });
       }
 
-      // Get online status for requested users
+      // Security: Only return status for users the requester has matched with
+      // This prevents stalking by querying arbitrary user IDs
+      const matchedUsersResult = await pool.query(
+        `SELECT CASE
+           WHEN user_id_1 = $1 THEN user_id_2
+           ELSE user_id_1
+         END as matched_user_id
+         FROM matches
+         WHERE (user_id_1 = $1 OR user_id_2 = $1)
+           AND status = 'active'`,
+        [userId]
+      );
+
+      const matchedUserIds = new Set(matchedUsersResult.rows.map(r => r.matched_user_id));
+
+      // Filter requested userIds to only include matched users
+      const authorizedUserIds = userIds.filter(id => matchedUserIds.has(id));
+
+      if (authorizedUserIds.length === 0) {
+        return callback?.({ success: true, statuses: [] });
+      }
+
+      // Get online status only for authorized (matched) users
       const result = await pool.query(
         'SELECT user_id, is_online, last_seen_at FROM user_status WHERE user_id = ANY($1)',
-        [userIds]
+        [authorizedUserIds]
       );
 
       const statuses = result.rows.map(row => ({

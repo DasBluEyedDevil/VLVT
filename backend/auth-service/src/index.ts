@@ -220,10 +220,15 @@ app.post('/auth/apple', authLimiter, async (req: Request, res: Response) => {
         return res.status(503).json({ success: false, error: 'Apple Sign-In not configured' });
       }
 
+      // Extract nonce from the identity token for verification
+      // The client should pass the nonce they used during sign-in
+      const { nonce } = req.body;
+
       const appleIdTokenClaims = await appleSignin.verifyIdToken(identityToken, {
         // Audience validation with required environment variable
         audience: process.env.APPLE_CLIENT_ID,
-        nonce: 'nonce' // Optional: verify nonce if you passed one during sign-in
+        // Only verify nonce if client provided one (for backwards compatibility)
+        ...(nonce && { nonce })
       });
 
       if (!appleIdTokenClaims || !appleIdTokenClaims.sub) {
@@ -1085,8 +1090,14 @@ app.post('/auth/instagram', authLimiter, async (req: Request, res: Response) => 
     }
 
     // Verify Instagram token and get user info
+    // Security: Use Authorization header instead of query parameter to avoid token exposure in logs
     const igResponse = await fetch(
-      `https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`
+      'https://graph.instagram.com/me?fields=id,username',
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
     );
 
     if (!igResponse.ok) {
@@ -2221,42 +2232,93 @@ app.post('/auth/kycaid/webhook', express.raw({ type: 'application/json' }), asyn
       await client.query('BEGIN');
 
       // Update verification record
-      await client.query(
-        `UPDATE kycaid_verifications SET
-           status = $1,
-           verification_status = $2,
-           first_name = $3,
-           last_name = $4,
-           date_of_birth = $5,
-           document_type = $6,
-           document_number = $7,
-           document_country = $8,
-           document_expiry = $9,
-           document_verified = $10,
-           face_match_verified = $11,
-           liveness_verified = $12,
-           aml_cleared = $13,
-           kycaid_response = $14,
-           completed_at = NOW()
-         WHERE id = $15`,
-        [
-          status,
-          callbackData.verification_status,
-          userData.firstName,
-          userData.lastName,
-          userData.dateOfBirth,
-          userData.documentType,
-          userData.documentNumber,
-          userData.documentCountry,
-          userData.documentExpiry,
-          userData.documentVerified,
-          userData.faceMatchVerified,
-          userData.livenessVerified,
-          userData.amlCleared,
-          JSON.stringify(body),
-          verification.id
-        ]
-      );
+      // Security: Encrypt sensitive PII data before storing
+      const encryptionKey = process.env.KYCAID_ENCRYPTION_KEY;
+      const piiData = {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        dateOfBirth: userData.dateOfBirth,
+        documentNumber: userData.documentNumber,
+        documentExpiry: userData.documentExpiry
+      };
+
+      if (encryptionKey) {
+        // Store encrypted PII, clear plaintext columns
+        await client.query(
+          `UPDATE kycaid_verifications SET
+             status = $1,
+             verification_status = $2,
+             encrypted_pii = encrypt_kycaid_pii($3::jsonb, $4),
+             document_type = $5,
+             document_country = $6,
+             document_verified = $7,
+             face_match_verified = $8,
+             liveness_verified = $9,
+             aml_cleared = $10,
+             kycaid_response = $11,
+             completed_at = NOW(),
+             -- Clear plaintext PII columns
+             first_name = NULL,
+             last_name = NULL,
+             date_of_birth = NULL,
+             document_number = NULL,
+             document_expiry = NULL
+           WHERE id = $12`,
+          [
+            status,
+            callbackData.verification_status,
+            JSON.stringify(piiData),
+            encryptionKey,
+            userData.documentType,
+            userData.documentCountry,
+            userData.documentVerified,
+            userData.faceMatchVerified,
+            userData.livenessVerified,
+            userData.amlCleared,
+            JSON.stringify(body),
+            verification.id
+          ]
+        );
+      } else {
+        // Fallback: Store in plaintext with warning (for backwards compatibility during migration)
+        logger.warn('KYCAID_ENCRYPTION_KEY not set - storing PII in plaintext. THIS IS A SECURITY RISK.');
+        await client.query(
+          `UPDATE kycaid_verifications SET
+             status = $1,
+             verification_status = $2,
+             first_name = $3,
+             last_name = $4,
+             date_of_birth = $5,
+             document_type = $6,
+             document_number = $7,
+             document_country = $8,
+             document_expiry = $9,
+             document_verified = $10,
+             face_match_verified = $11,
+             liveness_verified = $12,
+             aml_cleared = $13,
+             kycaid_response = $14,
+             completed_at = NOW()
+           WHERE id = $15`,
+          [
+            status,
+            callbackData.verification_status,
+            userData.firstName,
+            userData.lastName,
+            userData.dateOfBirth,
+            userData.documentType,
+            userData.documentNumber,
+            userData.documentCountry,
+            userData.documentExpiry,
+            userData.documentVerified,
+            userData.faceMatchVerified,
+            userData.livenessVerified,
+            userData.amlCleared,
+            JSON.stringify(body),
+            verification.id
+          ]
+        );
+      }
 
       // If approved, update user as verified
       if (isApproved) {

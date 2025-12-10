@@ -95,6 +95,7 @@ const deactivateToken = async (pool: Pool, token: string): Promise<void> => {
 export const sendMessageNotification = async (
   pool: Pool,
   recipientUserId: string,
+  senderUserId: string,
   senderName: string,
   messageText: string,
   matchId: string
@@ -126,7 +127,7 @@ export const sendMessageNotification = async (
       data: {
         type: 'message',
         matchId: matchId.toString(),
-        senderId: recipientUserId,
+        senderId: senderUserId,
         senderName,
         click_action: 'FLUTTER_NOTIFICATION_CLICK'
       },

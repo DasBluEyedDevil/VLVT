@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../config/app_config.dart';
 import 'analytics_service.dart';
 
@@ -82,21 +84,41 @@ class AuthService extends ChangeNotifier {
     }
   }
   
+  /// Generate a cryptographically random nonce for Apple Sign-In CSRF protection
+  String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+
+  /// SHA-256 hash the nonce for Apple Sign-In
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
   Future<bool> signInWithApple() async {
     try {
+      // Generate a random nonce for CSRF protection
+      final rawNonce = _generateNonce();
+      final hashedNonce = _sha256ofString(rawNonce);
+
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: hashedNonce,
       );
 
-      // Send to backend
+      // Send to backend with the raw nonce for verification
       final response = await http.post(
         Uri.parse('$baseUrl/auth/apple'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'identityToken': credential.identityToken,
+          'nonce': rawNonce,
         }),
       );
 

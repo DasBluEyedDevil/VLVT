@@ -20,7 +20,18 @@ const colors = {
 const MIGRATIONS = [
   '001_create_users_and_profiles.sql',
   '002_create_matches_and_messages.sql',
-  '003_create_safety_tables.sql'
+  '003_create_safety_tables.sql',
+  '004_add_realtime_features.sql',
+  '005_add_subscriptions_table.sql',
+  '006_add_auth_credentials.sql',
+  '007_add_refresh_tokens.sql',
+  '008_add_golden_tickets.sql',
+  '009_add_date_proposals.sql',
+  '010_add_verifications.sql',
+  '011_add_kycaid_verification.sql',
+  '012_fix_data_integrity.sql',
+  '013_security_improvements.sql',
+  '014_encrypt_kycaid_pii.sql'
 ];
 
 async function runMigrations() {

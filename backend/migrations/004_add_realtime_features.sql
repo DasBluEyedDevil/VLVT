@@ -56,14 +56,28 @@ CREATE INDEX IF NOT EXISTS idx_profiles_latitude ON profiles(latitude);
 CREATE INDEX IF NOT EXISTS idx_profiles_longitude ON profiles(longitude);
 CREATE INDEX IF NOT EXISTS idx_profiles_location ON profiles(latitude, longitude);
 
--- Add check constraints to ensure valid coordinates
-ALTER TABLE profiles
-ADD CONSTRAINT check_latitude
-    CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90));
+-- Add check constraints to ensure valid coordinates (idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'check_latitude'
+    ) THEN
+        ALTER TABLE profiles
+        ADD CONSTRAINT check_latitude
+            CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90));
+    END IF;
+END $$;
 
-ALTER TABLE profiles
-ADD CONSTRAINT check_longitude
-    CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180));
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'check_longitude'
+    ) THEN
+        ALTER TABLE profiles
+        ADD CONSTRAINT check_longitude
+            CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180));
+    END IF;
+END $$;
 
 -- ============================================
 -- 4. FIREBASE CLOUD MESSAGING TOKENS
@@ -113,8 +127,9 @@ CREATE INDEX IF NOT EXISTS idx_user_status_last_seen ON user_status(last_seen_at
 -- ============================================
 
 -- Create typing_indicators table for real-time typing status
+-- Note: match_id is VARCHAR(255) to match matches.id type
 CREATE TABLE IF NOT EXISTS typing_indicators (
-    match_id INTEGER NOT NULL,
+    match_id VARCHAR(255) NOT NULL,
     user_id VARCHAR(255) NOT NULL,
     is_typing BOOLEAN DEFAULT false,
     started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
