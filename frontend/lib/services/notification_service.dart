@@ -31,12 +31,15 @@ class NotificationService {
 
   String? _fcmToken;
   bool _initialized = false;
+  AuthService? _authService;
 
   /// Callback for when user taps a notification
   Function(Map<String, dynamic> data)? onNotificationTap;
 
-  /// Initialize the notification service
-  Future<void> initialize() async {
+  /// Initialize the notification service with an AuthService instance
+  /// The AuthService should be the one from the Provider tree
+  Future<void> initialize({AuthService? authService}) async {
+    _authService = authService;
     if (_initialized) {
       if (kDebugMode) print('🔔 Notification service already initialized');
       return;
@@ -180,7 +183,12 @@ class NotificationService {
   /// Register FCM token with backend
   Future<void> _registerToken(String token) async {
     try {
-      final authService = AuthService();
+      final authService = _authService;
+      if (authService == null) {
+        if (kDebugMode) print('⚠️ AuthService not provided - cannot register FCM token');
+        return;
+      }
+
       final user = await authService.getCurrentUser();
 
       if (user == null) {
@@ -223,7 +231,9 @@ class NotificationService {
     if (_fcmToken == null) return;
 
     try {
-      final authService = AuthService();
+      final authService = _authService;
+      if (authService == null) return;
+
       final jwtToken = await authService.getToken();
       if (jwtToken == null) return;
 

@@ -17,18 +17,87 @@ class ProfileApiService extends ChangeNotifier {
 
   Map<String, String> _getAuthHeaders() {
     final token = _authService.token;
+    if (token == null) {
+      debugPrint('Warning: No auth token available for API request');
+      return {
+        'Content-Type': 'application/json',
+      };
+    }
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }
 
+  /// Make a GET request with automatic 401 retry after token refresh
+  Future<http.Response> _authenticatedGet(Uri uri) async {
+    var response = await http.get(uri, headers: _getAuthHeaders());
+
+    if (response.statusCode == 401) {
+      debugPrint('Got 401, attempting token refresh...');
+      final refreshed = await _authService.refreshToken();
+      if (refreshed) {
+        debugPrint('Token refreshed, retrying request...');
+        response = await http.get(uri, headers: _getAuthHeaders());
+      }
+    }
+
+    return response;
+  }
+
+  /// Make a POST request with automatic 401 retry after token refresh
+  Future<http.Response> _authenticatedPost(Uri uri, {Object? body}) async {
+    var response = await http.post(uri, headers: _getAuthHeaders(), body: body);
+
+    if (response.statusCode == 401) {
+      debugPrint('Got 401, attempting token refresh...');
+      final refreshed = await _authService.refreshToken();
+      if (refreshed) {
+        debugPrint('Token refreshed, retrying request...');
+        response = await http.post(uri, headers: _getAuthHeaders(), body: body);
+      }
+    }
+
+    return response;
+  }
+
+  /// Make a PUT request with automatic 401 retry after token refresh
+  Future<http.Response> _authenticatedPut(Uri uri, {Object? body}) async {
+    var response = await http.put(uri, headers: _getAuthHeaders(), body: body);
+
+    if (response.statusCode == 401) {
+      debugPrint('Got 401, attempting token refresh...');
+      final refreshed = await _authService.refreshToken();
+      if (refreshed) {
+        debugPrint('Token refreshed, retrying request...');
+        response = await http.put(uri, headers: _getAuthHeaders(), body: body);
+      }
+    }
+
+    return response;
+  }
+
+  /// Make a DELETE request with automatic 401 retry after token refresh
+  Future<http.Response> _authenticatedDelete(Uri uri) async {
+    var response = await http.delete(uri, headers: _getAuthHeaders());
+
+    if (response.statusCode == 401) {
+      debugPrint('Got 401, attempting token refresh...');
+      final refreshed = await _authService.refreshToken();
+      if (refreshed) {
+        debugPrint('Token refreshed, retrying request...');
+        response = await http.delete(uri, headers: _getAuthHeaders());
+      }
+    }
+
+    return response;
+  }
+
   Future<Profile> getProfile(String userId) async {
     try {
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await http.get(
+      final response = await _authenticatedGet(
         Uri.parse('$baseUrl/profile/$encodedUserId'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -81,10 +150,7 @@ class ProfileApiService extends ChangeNotifier {
       debugPrint('Discovery API: GET $uri');
       debugPrint('Discovery API: Token present: ${_authService.token != null}');
 
-      final response = await http.get(
-        uri,
-        headers: _getAuthHeaders(),
-      );
+      final response = await _authenticatedGet(uri);
 
       debugPrint('Discovery API: Response status: ${response.statusCode}');
       if (response.statusCode != 200) {
@@ -110,9 +176,8 @@ class ProfileApiService extends ChangeNotifier {
 
   Future<Profile> createProfile(Profile profile) async {
     try {
-      final response = await http.post(
+      final response = await _authenticatedPost(
         Uri.parse('$baseUrl/profile'),
-        headers: _getAuthHeaders(),
         body: json.encode(profile.toJson()),
       );
 
@@ -159,9 +224,8 @@ class ProfileApiService extends ChangeNotifier {
   Future<Profile> updateProfile(Profile profile) async {
     try {
       final encodedUserId = Uri.encodeComponent(profile.userId);
-      final response = await http.put(
+      final response = await _authenticatedPut(
         Uri.parse('$baseUrl/profile/$encodedUserId'),
-        headers: _getAuthHeaders(),
         body: json.encode(profile.toJson()),
       );
 
@@ -221,9 +285,8 @@ class ProfileApiService extends ChangeNotifier {
   /// Search for count of users matching criteria (for free users)
   Future<int> searchUserCount(Map<String, dynamic> criteria) async {
     try {
-      final response = await http.post(
+      final response = await _authenticatedPost(
         Uri.parse('$baseUrl/profiles/search/count'),
-        headers: _getAuthHeaders(),
         body: json.encode(criteria),
       );
 
@@ -254,9 +317,8 @@ class ProfileApiService extends ChangeNotifier {
       }
 
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await http.put(
+      final response = await _authenticatedPut(
         Uri.parse('$baseUrl/profile/$encodedUserId/location'),
-        headers: _getAuthHeaders(),
         body: json.encode({
           'latitude': latitude,
           'longitude': longitude,
@@ -333,9 +395,8 @@ class ProfileApiService extends ChangeNotifier {
   Future<void> deletePhoto(String photoId) async {
     try {
       final encodedPhotoId = Uri.encodeComponent(photoId);
-      final response = await http.delete(
+      final response = await _authenticatedDelete(
         Uri.parse('$baseUrl/profile/photos/$encodedPhotoId'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -358,9 +419,8 @@ class ProfileApiService extends ChangeNotifier {
   /// Reorder photos in the user's profile
   Future<void> reorderPhotos(List<String> photoUrls) async {
     try {
-      final response = await http.put(
+      final response = await _authenticatedPut(
         Uri.parse('$baseUrl/profile/photos/reorder'),
-        headers: _getAuthHeaders(),
         body: json.encode({'photos': photoUrls}),
       );
 
@@ -414,9 +474,8 @@ class ProfileApiService extends ChangeNotifier {
     required String action,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _authenticatedPost(
         Uri.parse('$baseUrl/swipes'),
-        headers: _getAuthHeaders(),
         body: json.encode({
           'targetUserId': targetUserId,
           'action': action,
@@ -448,9 +507,8 @@ class ProfileApiService extends ChangeNotifier {
   /// Get users who have liked the current user
   Future<List<Map<String, dynamic>>> getReceivedLikes() async {
     try {
-      final response = await http.get(
+      final response = await _authenticatedGet(
         Uri.parse('$baseUrl/swipes/received'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -472,9 +530,8 @@ class ProfileApiService extends ChangeNotifier {
   /// Get users the current user has liked (sent likes)
   Future<List<Map<String, dynamic>>> getSentLikes() async {
     try {
-      final response = await http.get(
+      final response = await _authenticatedGet(
         Uri.parse('$baseUrl/swipes/sent'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {

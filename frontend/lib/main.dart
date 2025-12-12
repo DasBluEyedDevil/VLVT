@@ -54,22 +54,8 @@ void main() async {
     // Analytics works in both debug and release mode
     debugPrint('Firebase Analytics initialized');
 
-    // Initialize Notification Service
-    // Defer notification service initialization to avoid startup crashes
-    Future.delayed(const Duration(milliseconds: 500), () async {
-      try {
-        final notificationService = NotificationService();
-        await notificationService.initialize();
-
-        // Set up notification tap handler
-        notificationService.onNotificationTap = (data) {
-          _handleNotificationTap(data);
-        };
-        debugPrint('Notification service initialized successfully');
-      } catch (e) {
-        debugPrint('Notification service initialization failed: $e');
-      }
-    });
+    // Note: Notification service initialization moved to AuthWrapper
+    // to ensure AuthService is available from Provider tree
 
     debugPrint('Firebase initialized successfully');
   } catch (e) {
@@ -212,6 +198,7 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _showSplash = true;
+  bool _notificationServiceInitialized = false;
 
   @override
   void initState() {
@@ -225,7 +212,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final socketService = context.read<SocketService>();
       final messageQueueService = context.read<MessageQueueService>();
       socketService.setMessageQueueService(messageQueueService);
+
+      // Initialize notification service with AuthService from Provider
+      _initNotificationService(authService);
     });
+  }
+
+  Future<void> _initNotificationService(AuthService authService) async {
+    if (_notificationServiceInitialized) return;
+    _notificationServiceInitialized = true;
+
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize(authService: authService);
+
+      // Set up notification tap handler
+      notificationService.onNotificationTap = (data) {
+        _handleNotificationTap(data);
+      };
+      debugPrint('Notification service initialized successfully');
+    } catch (e) {
+      debugPrint('Notification service initialization failed: $e');
+    }
   }
 
   @override

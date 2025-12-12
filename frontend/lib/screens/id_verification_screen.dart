@@ -266,15 +266,23 @@ class _IdVerificationScreenState extends State<IdVerificationScreen> {
   }
 
   Widget _buildInitialState() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 40),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height -
+              MediaQuery.of(context).padding.top -
+              MediaQuery.of(context).padding.bottom -
+              48, // Account for padding
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(height: 40),
 
-          // Icon
-          Container(
+            // Icon
+            Container(
             width: 120,
             height: 120,
             decoration: BoxDecoration(
@@ -327,7 +335,7 @@ class _IdVerificationScreenState extends State<IdVerificationScreen> {
             subtitle: 'Your data is encrypted and never shared',
           ),
 
-          const Spacer(),
+          const SizedBox(height: 40),
 
           // Error message
           if (_errorMessage != null)
@@ -368,6 +376,7 @@ class _IdVerificationScreenState extends State<IdVerificationScreen> {
             style: VlvtTextStyles.caption.copyWith(color: VlvtColors.textMuted),
           ),
         ],
+        ),
       ),
     );
   }
