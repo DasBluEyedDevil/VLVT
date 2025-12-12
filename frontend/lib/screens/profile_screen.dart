@@ -7,6 +7,7 @@ import '../models/profile.dart';
 import 'profile_edit_screen.dart';
 import 'safety_settings_screen.dart';
 import 'invite_screen.dart';
+import 'id_verification_screen.dart';
 import '../widgets/feedback_widget.dart';
 import '../widgets/vlvt_loader.dart';
 import '../widgets/vlvt_card.dart';
@@ -24,11 +25,28 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _refreshKey = 0;
+  Map<String, dynamic>? _profileCompletionStatus;
 
   void _refreshProfile() {
     setState(() {
       _refreshKey++;
+      _profileCompletionStatus = null; // Reset completion status on refresh
     });
+    _checkProfileCompletion();
+  }
+
+  Future<void> _checkProfileCompletion() async {
+    try {
+      final profileService = context.read<ProfileApiService>();
+      final result = await profileService.checkProfileCompletion();
+      if (mounted) {
+        setState(() {
+          _profileCompletionStatus = result;
+        });
+      }
+    } catch (e) {
+      // Silently fail - don't show error for completion check
+    }
   }
 
   Future<void> _navigateToEditProfile(Profile? currentProfile) async {
@@ -92,6 +110,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           key: ValueKey(_refreshKey),
           future: profileService.getProfile(userId),
           builder: (context, snapshot) {
+            // Check profile completion when profile loads
+            if (snapshot.hasData && _profileCompletionStatus == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _checkProfileCompletion();
+              });
+            }
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
                 child: VlvtLoader(),
@@ -169,6 +193,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    // Profile completion banner
+                    if (_profileCompletionStatus != null &&
+                        _profileCompletionStatus!['isComplete'] != true)
+                      _buildProfileCompletionBanner(),
+                    if (_profileCompletionStatus != null &&
+                        _profileCompletionStatus!['isComplete'] != true)
+                      const SizedBox(height: 16),
                     VlvtCard(
                       goldAccent: subscriptionService.hasPremiumAccess,
                       child: Column(
@@ -331,6 +362,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return profile.age != null || 
            profile.bio != null || 
            (profile.interests != null && profile.interests!.isNotEmpty);
+  }
+
+  Widget _buildProfileCompletionBanner() {
+    final missingFields = List<String>.from(_profileCompletionStatus?['missingFields'] ?? []);
+    final message = _profileCompletionStatus?['message'] as String? ?? 'Please complete your profile to start messaging';
+    final needsIdVerification = missingFields.contains('id_verification');
+    final userId = context.read<AuthService>().userId;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: VlvtColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: VlvtColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: VlvtColors.error, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Profile Incomplete',
+                  style: VlvtTextStyles.h3.copyWith(color: VlvtColors.error),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.error),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: VlvtButton.secondary(
+                  label: 'Edit Profile',
+                  icon: Icons.edit,
+                  onPressed: () {
+                    final profileService = context.read<ProfileApiService>();
+                    profileService.getProfile(userId!).then((profile) {
+                      _navigateToEditProfile(profile);
+                    });
+                  },
+                ),
+              ),
+              if (needsIdVerification) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: VlvtButton.primary(
+                    label: 'Verify ID',
+                    icon: Icons.verified_user,
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const IdVerificationScreen(),
+                        ),
+                      ).then((_) {
+                        _refreshProfile();
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildInfoRow(String label, String value) {

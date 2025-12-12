@@ -387,6 +387,22 @@ app.post('/messages', authMiddleware, messageLimiter, validateMessage, async (re
       });
     }
 
+    // Check profile completion and ID verification
+    const { isProfileComplete } = await import('./utils/profile-check');
+    const profileCheck = await isProfileComplete(pool, authenticatedUserId);
+    if (!profileCheck.isComplete) {
+      logger.info('Message blocked via REST - profile incomplete', {
+        userId: authenticatedUserId,
+        missingFields: profileCheck.missingFields
+      });
+      return res.status(403).json({
+        success: false,
+        error: profileCheck.message,
+        code: 'PROFILE_INCOMPLETE',
+        missingFields: profileCheck.missingFields
+      });
+    }
+
     const messageId = `msg_${Date.now()}`;
 
     const result = await pool.query(

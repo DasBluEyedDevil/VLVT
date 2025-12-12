@@ -53,6 +53,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _otherUserTyping = false;
   bool _isRefreshing = false;
   bool _isOtherUserOnline = false;
+  bool _isProfileComplete = true;
+  String? _profileCompletionMessage;
+  List<String> _missingFields = [];
 
   // Socket.IO stream subscriptions
   StreamSubscription<Message>? _messageSubscription;
@@ -232,6 +235,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _checkProfileCompletion() async {
+    try {
+      final profileApiService = context.read<ProfileApiService>();
+      final result = await profileApiService.checkProfileCompletion();
+      
+      if (mounted) {
+        setState(() {
+          _isProfileComplete = result['isComplete'] == true;
+          _profileCompletionMessage = result['message'] as String?;
+          _missingFields = List<String>.from(result['missingFields'] ?? []);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking profile completion: $e');
+      // Default to allowing messaging if check fails (fail open for UX)
+      if (mounted) {
+        setState(() {
+          _isProfileComplete = true;
+        });
+      }
+    }
+  }
+
   Future<void> _loadData() async {
     if (_match == null) return;
     setState(() {
@@ -251,14 +277,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final otherUserId = _match!.getOtherUserId(currentUserId);
       _otherUserId = otherUserId;
 
+      // Check profile completion in parallel with loading messages
       final results = await Future.wait([
         chatApiService.getMessages(_match!.id),
         profileApiService.getProfile(otherUserId),
+        profileApiService.checkProfileCompletion(),
       ]);
 
+      final profileCompletionResult = results[2] as Map<String, dynamic>;
+      
       setState(() {
         _messages = results[0] as List<Message>;
         _otherUserProfile = results[1] as Profile;
+        _isProfileComplete = profileCompletionResult['isComplete'] == true;
+        _profileCompletionMessage = profileCompletionResult['message'] as String?;
+        _missingFields = List<String>.from(profileCompletionResult['missingFields'] ?? []);
       });
 
       // Load date proposals for this match
@@ -295,6 +328,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || text.length > _maxCharacters || _match == null || _isSending) return;
+
+    // Check profile completion before sending
+    if (!_isProfileComplete) {
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(_profileCompletionMessage ?? 'Please complete your profile to start messaging'),
+          backgroundColor: VlvtColors.error,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Complete Profile',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, '/profile');
+            },
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSending = true);
 
@@ -613,6 +666,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 // Date proposals card at top
                 if (activeProposals.isNotEmpty)
                   _buildDateProposalCard(activeProposals.first, currentUserId),
+                // Profile completion banner
+                if (!_isProfileComplete)
+                  _buildProfileCompletionBanner(),
                 Expanded(child: _buildMessagesList(currentUserId)),
                 _buildMessageInput(),
               ],
@@ -835,6 +891,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final charCount = _messageController.text.length;
     final isOverLimit = charCount > _maxCharacters;
     final showCounter = charCount > _maxCharacters * 0.8;
+    final isDisabled = !_isProfileComplete;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(color: VlvtColors.surface, boxShadow: [BoxShadow(color: VlvtColors.border.withValues(alpha: 0.1), spreadRadius: 1, blurRadius: 3, offset: const Offset(0, -1))]),
@@ -859,19 +916,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Expanded(
               child: VlvtInput(
                 controller: _messageController,
-                hintText: 'Type a message...',
+                hintText: isDisabled ? 'Complete your profile to message' : 'Type a message...',
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(),
                 textInputAction: TextInputAction.send,
                 blur: false,
+                enabled: !isDisabled,
               ),
             ),
             const SizedBox(width: 8),
             IconButton(
-              onPressed: _sendMessage,
+              onPressed: isDisabled ? null : _sendMessage,
               icon: _isSending ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
-              color: VlvtColors.gold,
+              color: isDisabled ? VlvtColors.textMuted : VlvtColors.gold,
               iconSize: 28,
             ),
           ]),

@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { SocketWithAuth } from './auth-middleware';
 import { sendMessageNotification } from '../services/fcm-service';
+import { isProfileComplete } from '../utils/profile-check';
 
 interface SendMessageData {
   matchId: string;
@@ -94,6 +95,18 @@ export const setupMessageHandlers = (io: SocketServer, socket: SocketWithAuth, p
       if (blockCheck.rows.length > 0) {
         logger.warn('Message blocked - block exists between users', { userId, recipientId, matchId });
         return callback?.({ success: false, error: 'Unable to send message' });
+      }
+
+      // Check profile completion and ID verification
+      const profileCheck = await isProfileComplete(pool, userId);
+      if (!profileCheck.isComplete) {
+        logger.info('Message blocked - profile incomplete', { userId, missingFields: profileCheck.missingFields });
+        return callback?.({
+          success: false,
+          error: profileCheck.message,
+          code: 'PROFILE_INCOMPLETE',
+          missingFields: profileCheck.missingFields
+        });
       }
 
       // Check subscription limits (prevent bypass of client-side paywall)

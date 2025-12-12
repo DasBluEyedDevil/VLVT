@@ -549,4 +549,90 @@ class ProfileApiService extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Check if the current user's profile is complete for messaging
+  /// Returns a map with:
+  /// - success: bool
+  /// - isComplete: bool
+  /// - missingFields: List<String>
+  /// - message: String
+  Future<Map<String, dynamic>> checkProfileCompletion() async {
+    try {
+      final userId = _authService.userId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Get the user's profile
+      final profile = await getProfile(userId);
+
+      // Get ID verification status
+      final idVerificationResult = await _authService.getIdVerificationStatus();
+      final isIdVerified = idVerificationResult['verified'] == true;
+
+      final missingFields = <String>[];
+
+      // Check required fields
+      if (profile.name == null || profile.name!.trim().isEmpty) {
+        missingFields.add('name');
+      }
+
+      if (profile.age == null || profile.age! < 18) {
+        missingFields.add('age');
+      }
+
+      if (profile.bio == null || profile.bio!.trim().isEmpty) {
+        missingFields.add('bio');
+      }
+
+      if (profile.photos == null || profile.photos!.isEmpty) {
+        missingFields.add('photos');
+      }
+
+      if (!isIdVerified) {
+        missingFields.add('id_verification');
+      }
+
+      final isComplete = missingFields.isEmpty;
+
+      String message;
+      if (isComplete) {
+        message = 'Profile is complete';
+      } else {
+        final fieldNames = missingFields.map((field) {
+          switch (field) {
+            case 'name':
+              return 'name';
+            case 'age':
+              return 'age';
+            case 'bio':
+              return 'bio';
+            case 'photos':
+              return 'at least one photo';
+            case 'id_verification':
+              return 'ID verification';
+            default:
+              return field;
+          }
+        });
+        message = 'Please complete your profile to start messaging: ${fieldNames.join(', ')}';
+      }
+
+      return {
+        'success': true,
+        'isComplete': isComplete,
+        'missingFields': missingFields,
+        'message': message,
+      };
+    } catch (e) {
+      debugPrint('Error checking profile completion: $e');
+      return {
+        'success': false,
+        'isComplete': false,
+        'missingFields': ['unknown'],
+        'message': 'Unable to verify profile completion. Please try again.',
+        'error': e.toString(),
+      };
+    }
+  }
 }
