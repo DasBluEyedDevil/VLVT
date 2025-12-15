@@ -344,11 +344,9 @@ class _AuthScreenState extends State<AuthScreen>
     return Scaffold(
       extendBodyBehindAppBar: true,
       extendBody: true,
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.translucent,
-        child: Stack(
+      body: Stack(
           fit: StackFit.expand,
           children: [
             // Background image with blur effect
@@ -382,35 +380,18 @@ class _AuthScreenState extends State<AuthScreen>
             Positioned.fill(
               child: SafeArea(
                 bottom: false,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Column(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Logo - larger size for better branding
                       Image.asset(
                         'assets/images/logo.png',
-                        width: 220,
-                        height: 220,
-                      ),
-                      Spacing.verticalSm,
-                      Text(
-                        'See what\'s waiting behind the rope.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'PlayfairDisplay',
-                          fontStyle: FontStyle.italic,
-                          fontSize: 24,
-                          color: Colors.white.withValues(alpha: 0.95),
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.5,
-                          height: 1.4,
-                        ),
+                        width: 340,
+                        height: 340,
                       ),
                       Spacing.verticalXl,
                       // Loading indicator or form
@@ -452,6 +433,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 autocorrect: false,
+                                blur: false,
                                 hintText: 'Email',
                                 prefixIcon: Icons.email_outlined,
                                 validator: (value) {
@@ -474,6 +456,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 autocorrect: false,
+                                blur: false,
                                 hintText: 'Password',
                                 prefixIcon: Icons.lock_outlined,
                                 suffixIcon: _obscurePassword
@@ -515,6 +498,39 @@ class _AuthScreenState extends State<AuthScreen>
                                       ),
                                     );
                                   },
+                                ),
+                              ),
+                              Spacing.verticalMd,
+                              // Create account link
+                              Center(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const RegisterScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: VlvtTextStyles.bodyMedium.copyWith(
+                                        color: Colors.white.withValues(alpha: 0.8),
+                                      ),
+                                      children: [
+                                        const TextSpan(text: "Don't have an account? "),
+                                        TextSpan(
+                                          text: 'Get on the list',
+                                          style: TextStyle(
+                                            color: const Color(0xFFD4AF37),
+                                            fontWeight: FontWeight.w600,
+                                            decoration: TextDecoration.underline,
+                                            decorationColor: const Color(0xFFD4AF37),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -571,20 +587,17 @@ class _AuthScreenState extends State<AuthScreen>
                           ],
                         ),
                         Spacing.verticalXl,
-                        // Terms of service
-                        Padding(
-                          padding: Spacing.horizontalPaddingLg,
+                        // Terms of service - single row
+                        Center(
                           child: RichText(
-                            textAlign: TextAlign.center,
                             text: TextSpan(
                               style: VlvtTextStyles.caption.copyWith(
                                 color: Colors.white.withValues(alpha: 0.7),
                               ),
                               children: [
-                                const TextSpan(
-                                    text: 'By signing in, you agree to our '),
+                                const TextSpan(text: 'By signing in, you agree to our '),
                                 TextSpan(
-                                  text: 'Terms of Service',
+                                  text: 'Terms',
                                   style: const TextStyle(
                                     decoration: TextDecoration.underline,
                                     fontWeight: FontWeight.w600,
@@ -596,14 +609,13 @@ class _AuthScreenState extends State<AuthScreen>
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               const LegalDocumentViewer(
-                                            documentType: LegalDocumentType
-                                                .termsOfService,
+                                            documentType: LegalDocumentType.termsOfService,
                                           ),
                                         ),
                                       );
                                     },
                                 ),
-                                const TextSpan(text: ' and '),
+                                const TextSpan(text: ' & '),
                                 TextSpan(
                                   text: 'Privacy Policy',
                                   style: const TextStyle(
@@ -617,47 +629,13 @@ class _AuthScreenState extends State<AuthScreen>
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               const LegalDocumentViewer(
-                                            documentType:
-                                                LegalDocumentType.privacyPolicy,
+                                            documentType: LegalDocumentType.privacyPolicy,
                                           ),
                                         ),
                                       );
                                     },
                                 ),
                               ],
-                            ),
-                          ),
-                        ),
-                        // Create account - at bottom
-                        Spacing.verticalXl,
-                        Center(
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                            child: RichText(
-                              text: TextSpan(
-                                style: VlvtTextStyles.bodyMedium.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                                children: [
-                                  const TextSpan(text: "Don't have an account? "),
-                                  TextSpan(
-                                    text: 'Get on the list',
-                                    style: TextStyle(
-                                      color: const Color(0xFFD4AF37), // Gold
-                                      fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: const Color(0xFFD4AF37),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                         ),
@@ -668,11 +646,8 @@ class _AuthScreenState extends State<AuthScreen>
                 ),
               ),
             ),
-            ),
-            ),
           ],
         ),
-      ),
     );
   }
 

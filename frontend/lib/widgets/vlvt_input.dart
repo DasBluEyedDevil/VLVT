@@ -98,29 +98,19 @@ class VlvtInput extends StatefulWidget {
 
 class _VlvtInputState extends State<VlvtInput> {
   late FocusNode _focusNode;
-  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _focusNode = widget.focusNode ?? FocusNode();
-    _focusNode.addListener(_onFocusChange);
   }
 
   @override
   void dispose() {
     if (widget.focusNode == null) {
       _focusNode.dispose();
-    } else {
-      _focusNode.removeListener(_onFocusChange);
     }
     super.dispose();
-  }
-
-  void _onFocusChange() {
-    setState(() {
-      _isFocused = _focusNode.hasFocus;
-    });
   }
 
   @override
@@ -159,7 +149,7 @@ class _VlvtInputState extends State<VlvtInput> {
         fillColor: VlvtColors.glassBackgroundStrong,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 16,
+          vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: VlvtDecorations.borderRadiusMd,
@@ -215,17 +205,6 @@ class _VlvtInputState extends State<VlvtInput> {
           filter: VlvtDecorations.glassBlur,
           child: inputField,
         ),
-      );
-    }
-
-    // Add gold glow when focused
-    if (_isFocused) {
-      inputField = Container(
-        decoration: BoxDecoration(
-          borderRadius: VlvtDecorations.borderRadiusMd,
-          boxShadow: [VlvtDecorations.goldGlowSoft],
-        ),
-        child: inputField,
       );
     }
 
