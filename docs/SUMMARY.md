@@ -99,10 +99,9 @@ A complete **dating application** featuring:
 - EXIF stripping from uploaded photos (privacy)
 - Presigned URLs for image access (no public bucket)
 
-### Test Endpoints
-- `/auth/test-login` and `/auth/seed-test-users` exist for beta testing
-- Controlled by `ENABLE_TEST_ENDPOINTS` environment variable
-- Disabled by default in production (`NODE_ENV=production`)
+### Test Data
+- Seed data provides 20 test users with profiles, matches, and conversations
+- Generate JWTs manually for test accounts (see `backend/seed-data/README.md`)
 
 ## Deployment
 

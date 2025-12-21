@@ -2,43 +2,22 @@
 
 ## Current Security Status
 
-This implementation is a **demonstration/proof-of-concept** and includes stub implementations that are **NOT production-ready**. Below is a summary of known security considerations.
+Core security controls are implemented across services: OAuth token verification (Apple/Google), JWT access + refresh tokens, rate limiting, helmet security headers, input validation, and parameterized SQL queries. This is still a beta system; review the checklist before production.
 
 ## Security Alerts
 
-### Alert 1: Missing Rate Limiting (js/missing-rate-limiting)
-- **Location**: `backend/auth-service/src/index.ts:77`
-- **Severity**: Medium
-- **Description**: The `/auth/verify` route handler performs authorization but is not rate-limited
-- **Status**: Known limitation - needs to be addressed before production
-- **Recommendation**: Implement rate limiting middleware (e.g., `express-rate-limit`) to prevent brute force attacks
+None documented at this time. Add new alerts here as they are discovered.
 
-**Example Implementation:**
-```typescript
-import rateLimit from 'express-rate-limit';
-
-const verifyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many verification requests, please try again later'
-});
-
-app.post('/auth/verify', verifyLimiter, (req, res) => {
-  // ... existing code
-});
-```
-
-## Stub Implementations Requiring Production Updates
+## Production Review Items
 
 ### 1. Authentication Token Verification
-**Current**: Stub implementation that accepts any token without verification
+**Current**: Apple/Google token verification is implemented with server-side signature validation.
 **Production Required**:
-- Verify Apple identity tokens using Apple's public keys
-- Verify Google ID tokens using Google's token verification API
-- Implement proper error handling for invalid tokens
+- Ensure `APPLE_CLIENT_ID` and `GOOGLE_CLIENT_ID` are configured per environment
+- Monitor token verification failures and alerting
 
 ### 2. JWT Secret Management
-**Current**: Requires JWT_SECRET environment variable (improved in latest version)
+**Current**: `JWT_SECRET` is required at startup with no fallback.
 **Production Required**:
 - Use a cryptographically secure random string (minimum 256 bits)
 - Store in secure secret management system (AWS Secrets Manager, HashiCorp Vault)
@@ -46,33 +25,26 @@ app.post('/auth/verify', verifyLimiter, (req, res) => {
 - Use different secrets for different environments
 
 ### 3. Database Security
-**Current**: In-memory storage for profile and chat services; basic PostgreSQL setup
+**Current**: PostgreSQL is used across services with parameterized queries and connection pooling.
 **Production Required**:
-- Replace in-memory storage with PostgreSQL queries
-- Use parameterized queries to prevent SQL injection
-- Implement connection pooling
 - Enable SSL/TLS for database connections
 - Use strong passwords (not defaults)
 - Implement proper access controls
 - Regular backups
 
 ### 4. API Security
-**Current**: No authentication middleware on most endpoints
+**Current**: Auth middleware and request validation are applied to protected routes.
 **Production Required**:
-- Add JWT verification middleware to all protected routes
-- Implement request validation
-- Add input sanitization
-- Implement CORS properly for specific origins
-- Add security headers (helmet.js)
+- Verify all protected routes enforce JWT verification
+- Implement CORS for specific origins
+- Review security headers (helmet.js)
 - Implement request signing for sensitive operations
 
 ### 5. Rate Limiting
-**Current**: None implemented
+**Current**: Rate limiting is implemented on auth and service endpoints.
 **Production Required**:
-- Add rate limiting to all endpoints
-- Especially critical for authentication endpoints
-- Implement different limits for different endpoint types
-- Consider implementing distributed rate limiting (Redis)
+- Review limits and adjust per endpoint type
+- Consider distributed rate limiting (Redis) for scale
 
 ## Environment Variables
 
@@ -107,17 +79,17 @@ All npm dependencies have been checked against the GitHub Advisory Database:
 Before deploying to production, ensure all items are checked:
 
 ### Backend Security
-- [ ] Replace stub authentication with real token verification
-- [ ] Implement rate limiting on all endpoints
-- [ ] Add authentication middleware to protected routes
+- [ ] Verify Apple/Google token verification is configured in production
+- [ ] Review rate limiting on all endpoints
+- [ ] Verify authentication middleware on protected routes
 - [ ] Use strong, randomly generated JWT secrets
 - [ ] Enable HTTPS on all services
 - [ ] Implement input validation and sanitization
-- [ ] Replace in-memory storage with PostgreSQL
-- [ ] Use parameterized database queries
+- [ ] Verify PostgreSQL migrations and pooling are in place for all services
+- [ ] Use parameterized database queries for new endpoints
 - [ ] Enable database SSL connections
 - [ ] Configure CORS for specific origins only
-- [ ] Add security headers (helmet.js)
+- [ ] Review security headers (helmet.js)
 - [ ] Implement proper error handling (don't leak info)
 - [ ] Set up logging and monitoring
 - [ ] Configure log rotation

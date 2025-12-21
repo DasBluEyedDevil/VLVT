@@ -213,20 +213,23 @@ app.post('/matches', authMiddleware, matchLimiter, validateMatch, async (req: Re
       });
     }
 
-    // Ensure both users exist in the database (auto-create if needed for dev/test)
-    // This handles the case where auth happens on Railway but chat service runs locally
+    const missingUsers: string[] = [];
     for (const uid of [userId1, userId2]) {
       const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [uid]);
       if (userExists.rows.length === 0) {
-        // Determine provider from userId format
-        const provider = uid.startsWith('google_') ? 'google' : uid.startsWith('apple_') ? 'apple' : 'unknown';
-        await pool.query(
-          `INSERT INTO users (id, provider, email) VALUES ($1, $2, $3)
-           ON CONFLICT (id) DO NOTHING`,
-          [uid, provider, `${uid}@placeholder.local`]
-        );
-        logger.info('Auto-created user for match', { userId: uid, provider });
+        missingUsers.push(uid);
       }
+    }
+
+    if (missingUsers.length > 0) {
+      logger.warn('Match creation failed: users not found', {
+        missingUsers,
+        requestedBy: authenticatedUserId
+      });
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
     }
 
     // Check for existing match in both directions

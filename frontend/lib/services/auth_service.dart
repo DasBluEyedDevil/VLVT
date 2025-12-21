@@ -522,7 +522,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Set auth data directly (used for test login)
+  /// Set auth data directly (used for manual dev/test auth)
   /// This bypasses OAuth and sets authentication state manually
   Future<void> setAuthData({required String token, required String userId}) async {
     _token = token;

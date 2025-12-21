@@ -13,7 +13,7 @@ if (process.env.SENTRY_DSN) {
   });
 }
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import multer from 'multer';
@@ -37,42 +37,6 @@ import {
 import { resolvePhotoUrls, uploadToR2, getPresignedUrl } from './utils/r2-client';
 import { RekognitionClient, CompareFacesCommand } from '@aws-sdk/client-rekognition';
 import { initializeFirebase, sendMatchNotification } from './services/fcm-service';
-
-// Admin API key for protected test endpoints
-const TEST_ENDPOINTS_API_KEY = process.env.TEST_ENDPOINTS_API_KEY;
-
-/**
- * Middleware to require admin API key for sensitive test endpoints
- */
-function requireTestEndpointAuth(req: Request, res: Response, next: NextFunction) {
-  // In non-production without API key, allow access for dev convenience
-  if (process.env.NODE_ENV !== 'production' && !TEST_ENDPOINTS_API_KEY) {
-    return next();
-  }
-
-  const providedKey = req.headers['x-admin-api-key'] as string;
-
-  if (!TEST_ENDPOINTS_API_KEY) {
-    logger.error('TEST_ENDPOINTS_API_KEY not configured but test endpoints enabled in production');
-    return res.status(503).json({
-      success: false,
-      error: 'Test endpoints not properly configured'
-    });
-  }
-
-  if (!providedKey || providedKey !== TEST_ENDPOINTS_API_KEY) {
-    logger.warn('Unauthorized test endpoint access attempt', {
-      ip: req.ip,
-      path: req.path
-    });
-    return res.status(403).json({
-      success: false,
-      error: 'Forbidden: Invalid or missing admin API key'
-    });
-  }
-
-  next();
-}
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1455,49 +1419,6 @@ app.get('/swipes/sent', authMiddleware, generalLimiter, async (req: Request, res
     res.status(500).json({ success: false, error: 'Failed to get sent likes' });
   }
 });
-
-// Seed test profiles endpoint (ONLY FOR DEVELOPMENT/TESTING/BETA - requires admin API key)
-if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
-  app.post('/profile/seed-test-profiles', requireTestEndpointAuth, async (req: Request, res: Response) => {
-    try {
-      const seedSQL = `
-INSERT INTO profiles (user_id, name, age, bio, photos, interests, created_at, updated_at) VALUES
-('google_test001', 'Alex Chen', 28, 'Software engineer by day, amateur chef by night. Love exploring new restaurants and trying to recreate the dishes at home. Always up for spontaneous road trips!', ARRAY['https://i.pravatar.cc/300?img=1'], ARRAY['Cooking', 'Technology', 'Travel', 'Photography', 'Hiking'], NOW() - INTERVAL '30 days', NOW() - INTERVAL '5 days'),
-('google_test002', 'Jordan Rivera', 25, 'Yoga instructor and meditation enthusiast. Believer in positive vibes and good coffee. Let''s grab matcha and talk about life!', ARRAY['https://i.pravatar.cc/300?img=2'], ARRAY['Yoga', 'Fitness', 'Coffee', 'Reading', 'Nature'], NOW() - INTERVAL '28 days', NOW() - INTERVAL '3 days'),
-('google_test003', 'Sam Patel', 31, 'Marketing strategist with a passion for live music. Concert regular and vinyl collector. Can''t resist a good pun.', ARRAY['https://i.pravatar.cc/300?img=3'], ARRAY['Music', 'Concerts', 'Marketing', 'Vinyl Records', 'Comedy'], NOW() - INTERVAL '25 days', NOW() - INTERVAL '7 days'),
-('google_test004', 'Taylor Kim', 27, 'Graphic designer who loves turning coffee into creativity. Weekend warrior at local art galleries. Looking for someone to explore the city with.', ARRAY['https://i.pravatar.cc/300?img=4'], ARRAY['Art', 'Design', 'Coffee', 'Museums', 'Illustration'], NOW() - INTERVAL '22 days', NOW() - INTERVAL '2 days'),
-('google_test005', 'Morgan Santos', 29, 'Outdoor enthusiast and rock climbing addict. If I''m not at the gym, I''m probably at the crag. Let''s belay each other through life!', ARRAY['https://i.pravatar.cc/300?img=5'], ARRAY['Climbing', 'Outdoor Adventures', 'Fitness', 'Photography', 'Travel'], NOW() - INTERVAL '20 days', NOW() - INTERVAL '1 days'),
-('google_test006', 'Casey Nguyen', 26, 'Elementary school teacher with a love for board games and terrible dad jokes. Looking for a Player 2!', ARRAY['https://i.pravatar.cc/300?img=6'], ARRAY['Board Games', 'Teaching', 'Reading', 'Comedy', 'Cooking'], NOW() - INTERVAL '18 days', NOW() - INTERVAL '4 days'),
-('google_test007', 'Riley Anderson', 30, 'Data scientist trying to make sense of the world, one dataset at a time. Love sci-fi, craft beer, and philosophical conversations.', ARRAY['https://i.pravatar.cc/300?img=7'], ARRAY['Science', 'Beer', 'Books', 'Technology', 'Philosophy'], NOW() - INTERVAL '15 days', NOW() - INTERVAL '1 days'),
-('google_test008', 'Avery Williams', 24, 'Aspiring photographer capturing the beauty in everyday moments. Dog lover (I have a golden retriever named Sunny). Let''s go on photo walks!', ARRAY['https://i.pravatar.cc/300?img=8'], ARRAY['Photography', 'Dogs', 'Nature', 'Art', 'Walking'], NOW() - INTERVAL '12 days', NOW() - INTERVAL '2 days'),
-('google_test009', 'Drew Martinez', 32, 'Entrepreneur building the next big thing. Work hard, play harder. Looking for someone ambitious who can keep up!', ARRAY['https://i.pravatar.cc/300?img=9'], ARRAY['Entrepreneurship', 'Travel', 'Fitness', 'Technology', 'Wine'], NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 days'),
-('google_test010', 'Charlie Lee', 28, 'Bookworm and aspiring novelist. If you can recommend a good book, you''ve already won me over. Favorite genre: magical realism.', ARRAY['https://i.pravatar.cc/300?img=10'], ARRAY['Reading', 'Writing', 'Books', 'Coffee', 'Art'], NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 days'),
-('google_test011', 'Jamie Brown', 26, 'Personal trainer helping people crush their fitness goals. Meal prep enthusiast and smoothie expert. Let''s get healthy together!', ARRAY['https://i.pravatar.cc/300?img=11'], ARRAY['Fitness', 'Health', 'Cooking', 'Running', 'Yoga'], NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 hours'),
-('google_test012', 'Quinn Davis', 29, 'Architect designing spaces where life happens. Lover of modern design and mid-century furniture. Can talk about buildings for hours.', ARRAY['https://i.pravatar.cc/300?img=12'], ARRAY['Architecture', 'Design', 'Art', 'Travel', 'Photography'], NOW() - INTERVAL '5 days', NOW() - INTERVAL '12 hours'),
-('google_test013', 'Reese Garcia', 27, 'Marine biologist passionate about ocean conservation. Scuba certified and always planning the next dive trip. Let''s save the oceans together!', ARRAY['https://i.pravatar.cc/300?img=13'], ARRAY['Scuba Diving', 'Ocean', 'Travel', 'Science', 'Photography'], NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 hours'),
-('google_test014', 'Skylar Wilson', 25, 'Pastry chef who believes life is too short for bad desserts. Weekend brunch enthusiast. I''ll bake you cookies on the first date!', ARRAY['https://i.pravatar.cc/300?img=14'], ARRAY['Baking', 'Cooking', 'Food', 'Coffee', 'Travel'], NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 hours'),
-('google_test015', 'Blake Moore', 30, 'Lawyer by profession, comedian by heart. Improv classes keep me sane. Looking for someone who appreciates good humor and better debates.', ARRAY['https://i.pravatar.cc/300?img=15'], ARRAY['Comedy', 'Improv', 'Debate', 'Theater', 'Reading'], NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 hours'),
-('google_test016', 'Phoenix Taylor', 28, 'DJ spinning records and good vibes. Music festival regular. Life''s a party, and I''m always looking for the next adventure.', ARRAY['https://i.pravatar.cc/300?img=16'], ARRAY['Music', 'DJing', 'Festivals', 'Dancing', 'Travel'], NOW() - INTERVAL '1 days', NOW() - INTERVAL '1 hour'),
-('google_test017', 'Sage Jackson', 26, 'Veterinarian who thinks all animals are perfect. Proud plant parent with 30+ houseplants. Let''s talk about your pets for hours!', ARRAY['https://i.pravatar.cc/300?img=17'], ARRAY['Animals', 'Veterinary', 'Plants', 'Nature', 'Hiking'], NOW() - INTERVAL '12 hours', NOW() - INTERVAL '30 minutes'),
-('google_test018', 'Dakota White', 31, 'Financial advisor who actually makes money interesting. Love traveling on points and finding the best deals. Let me plan our vacation!', ARRAY['https://i.pravatar.cc/300?img=18'], ARRAY['Travel', 'Finance', 'Hiking', 'Wine', 'Photography'], NOW() - INTERVAL '6 hours', NOW() - INTERVAL '15 minutes'),
-('google_test019', 'River Harris', 24, 'Video game developer living the dream. Gamer, anime fan, and bubble tea addict. Looking for a co-op partner in life!', ARRAY['https://i.pravatar.cc/300?img=19'], ARRAY['Gaming', 'Anime', 'Technology', 'Coding', 'Esports'], NOW() - INTERVAL '3 hours', NOW() - INTERVAL '10 minutes'),
-('google_test020', 'Ocean Clark', 27, 'Environmental scientist fighting climate change. Vegan foodie and zero-waste advocate. Let''s make the world a better place, one date at a time.', ARRAY['https://i.pravatar.cc/300?img=20'], ARRAY['Environment', 'Sustainability', 'Vegan', 'Science', 'Activism'], NOW() - INTERVAL '1 hour', NOW() - INTERVAL '5 minutes')
-ON CONFLICT (user_id) DO NOTHING;
-      `;
-
-      await pool.query(seedSQL);
-
-      res.json({ success: true, message: 'Test profiles seeded successfully' });
-      logger.info('Test profiles seeded');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Seed profiles error', { error: errorMessage, fullError: error });
-      res.status(500).json({ success: false, error: `Seed failed: ${errorMessage}` });
-    }
-  });
-
-  logger.warn('Test profile seed endpoint enabled (NOT FOR PRODUCTION)');
-}
 
 // Sentry error handler - must be after all routes but before generic error handler
 if (process.env.SENTRY_DSN) {

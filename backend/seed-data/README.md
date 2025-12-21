@@ -74,46 +74,6 @@ All test users follow the pattern `google_test###` (e.g., `google_test001`):
 
 ## Logging In as Test Users
 
-### Option 1: Test Login Endpoint (Recommended)
-
-The auth service includes a development-only test login endpoint:
-
-```bash
-# Login as Alex Chen
-curl -X POST http://localhost:3001/auth/test-login \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "google_test001"}'
-
-# Response:
-{
-  "success": true,
-  "token": "eyJhbGc...",
-  "userId": "google_test001",
-  "provider": "google",
-  "email": "alex.chen@test.com"
-}
-```
-
-Use the returned `token` in subsequent API requests:
-
-```bash
-curl -X GET http://localhost:3002/profile/google_test001 \
-  -H "Authorization: Bearer eyJhbGc..."
-```
-
-### Option 2: Frontend Test Login UI
-
-For easier testing in the Flutter app, we've created a test user selector screen (see `frontend/lib/screens/test_login_screen.dart`). This provides:
-
-- Visual list of all 20 test personas
-- One-tap login
-- Profile previews
-- Easy switching between users
-
-To enable it, modify `frontend/lib/screens/auth_screen.dart` to show a "Test Users" button in development mode.
-
-### Option 3: Manual JWT Generation
-
 Generate tokens manually using your JWT secret:
 
 ```javascript
@@ -127,6 +87,13 @@ const token = jwt.sign(
   'your_jwt_secret',
   { expiresIn: '7d' }
 );
+```
+
+Use the returned `token` in subsequent API requests:
+
+```bash
+curl -X GET http://localhost:3002/profile/google_test001 \
+  -H "Authorization: Bearer eyJhbGc..."
 ```
 
 ## Test Data Scenarios
@@ -230,9 +197,8 @@ The seeding script uses these environment variables:
 # Database connection
 DATABASE_URL=postgresql://user:password@host:5432/database
 
-# For auth service test login endpoint
+# For manual JWT generation
 JWT_SECRET=your_secret_key
-NODE_ENV=development  # Test login only works when NOT production
 ```
 
 ## File Structure
@@ -264,16 +230,6 @@ Check that PostgreSQL is running and DATABASE_URL is correct:
 psql $DATABASE_URL -c "SELECT 1"
 ```
 
-### Test login endpoint not found
-
-Make sure NODE_ENV is NOT set to "production":
-
-```bash
-unset NODE_ENV
-# or
-export NODE_ENV=development
-```
-
 ### JWT token invalid
 
 Verify your JWT_SECRET matches between auth service and token generation.
@@ -290,9 +246,7 @@ To add additional test users:
 
 ## Production Warning
 
-⚠️ **IMPORTANT**: The test login endpoint is DISABLED in production environments. Never use these test accounts or the test login endpoint in production!
-
-The test login endpoint only works when `NODE_ENV !== 'production'`.
+IMPORTANT: Test accounts are for non-production environments only. Do not seed or use them in production.
 
 ## Support
 
@@ -301,3 +255,4 @@ For issues or questions:
 - Review the IMPLEMENTATION.md docs
 - Check that all services are running (auth, profile, chat)
 - Verify database migrations are complete
+

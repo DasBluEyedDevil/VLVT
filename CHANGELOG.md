@@ -1,42 +1,25 @@
 # VLVT - Changelog
 
-## [Unreleased] - 2025-11-14 - Beta Testing - Test Login Working
+## [Unreleased] - 2025-12-22 - Beta Testing - Hardening
 
-### Added
-- **Test Login Endpoint** - Enabled test login for beta testing
-  - Modified auth service to allow test endpoints via ENABLE_TEST_ENDPOINTS env var
-  - Added seed endpoint to populate database with 20 test users
-  - Inlined seed SQL to ensure deployment availability
-
-### Fixed
-- **Railway Database Connection**
-  - Fixed SSL certificate issue (rejectUnauthorized: false for Railway)
-  - Database now connects successfully from deployed services
-  - Seed endpoint successfully populates test users
+### Removed
+- Test endpoints in auth/profile services (`/auth/test-login`, `/auth/seed-test-users`, `/auth/init-database`, `/profile/seed-test-profiles`)
+- `ENABLE_TEST_ENDPOINTS` gating
 
 ### Changed
-- **Authentication Service**
-  - Test endpoints now available in production with ENABLE_TEST_ENDPOINTS=true
-  - Added detailed error logging for debugging
-  - Embedded seed SQL directly in code for reliable deployment
-
-### Deployed
-- ✅ Railway auth service with test login enabled
-- ✅ 20 test users seeded (google_test001 through google_test020)
-- ✅ Debug APK installed on physical device with test login button
-- ✅ Test login verified working end-to-end
+- Chat service now requires existing users for match creation (no auto-create)
+- Backend root start script now fails fast with guidance
+- Android release signing uses `key.properties` and blocks unsigned release builds
+- Documentation updated to reflect current auth flow and test user usage
 
 ### Available Test Accounts
 - `google_test001` through `google_test020`
-- Each user has realistic profile data, interests, and some have matches/messages
-- Use test login button in debug builds to authenticate
+- Generate JWTs manually (see `backend/seed-data/README.md`)
 
 ### Status
-- **Test Login:** ✅ WORKING
-- **Database Seeding:** ✅ COMPLETE
-- **Beta Testing:** ✅ READY
-- **Next Step:** Full app testing on physical device
-
+- **Test Users:** AVAILABLE
+- **Database Seeding:** COMPLETE
+- **Beta Testing:** IN PROGRESS
 ---
 
 ## [1.0.0] - 2025-11-13 - Beta Prep Session
@@ -212,3 +195,4 @@
 
 **Changelog Format:** Based on [Keep a Changelog](https://keepachangelog.com/)
 **Versioning:** Semantic Versioning (MAJOR.MINOR.PATCH)
+

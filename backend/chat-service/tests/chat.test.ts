@@ -117,8 +117,10 @@ describe('Chat Service', () => {
       const appModule = require('../src/index');
       app = appModule.default || appModule;
 
-      // Mock no existing match
+      // Mock users exist, then no existing match, then create new match
       mockPool.query
+        .mockResolvedValueOnce({ rows: [{ id: 'user_1' }] }) // User 1 exists
+        .mockResolvedValueOnce({ rows: [{ id: 'user_2' }] }) // User 2 exists
         .mockResolvedValueOnce({ rows: [] }) // Check for existing match
         .mockResolvedValueOnce({ // Create new match
           rows: [{
@@ -159,15 +161,18 @@ describe('Chat Service', () => {
       const appModule = require('../src/index');
       app = appModule.default || appModule;
 
-      // Mock existing match found
-      mockPool.query.mockResolvedValue({
-        rows: [{
-          id: 'match_existing',
-          user_id_1: 'user_1',
-          user_id_2: 'user_2',
-          created_at: new Date(),
-        }],
-      });
+      // Mock users exist, then existing match found
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [{ id: 'user_1' }] }) // User 1 exists
+        .mockResolvedValueOnce({ rows: [{ id: 'user_2' }] }) // User 2 exists
+        .mockResolvedValueOnce({
+          rows: [{
+            id: 'match_existing',
+            user_id_1: 'user_1',
+            user_id_2: 'user_2',
+            created_at: new Date(),
+          }],
+        });
 
       const response = await request(app)
         .post('/matches')
@@ -177,6 +182,24 @@ describe('Chat Service', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.alreadyExists).toBe(true);
+    });
+
+    it('should return 404 when a user does not exist', async () => {
+      const appModule = require('../src/index');
+      app = appModule.default || appModule;
+
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [] }) // User 1 missing
+        .mockResolvedValueOnce({ rows: [{ id: 'user_2' }] }); // User 2 exists
+
+      const response = await request(app)
+        .post('/matches')
+        .set('Authorization', `Bearer ${validToken}`)
+        .send({ userId1: 'user_1', userId2: 'user_2' })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('User not found');
     });
 
     it('should validate required fields', async () => {

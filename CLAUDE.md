@@ -95,13 +95,7 @@ Frontend auto-detects environment:
 - Override: `--dart-define=USE_PROD_URLS=true`
 
 ### Test Users
-In debug mode, a "Test Users" button appears on auth screen. Test login via:
-```bash
-curl -X POST http://localhost:3001/auth/test-login \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "google_test001"}'
-```
-Test users: google_test001 through google_test020 (see docs/TESTING.md)
+Test users: google_test001 through google_test020 (see docs/TESTING.md). Generate JWTs manually using `backend/seed-data/README.md` and use them for API testing.
 
 ## Deployment
 

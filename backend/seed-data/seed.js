@@ -153,9 +153,8 @@ async function displayTestUsers() {
 
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('\n💡 To use these test accounts:');
-    console.log('   1. Use the test login endpoint: POST /auth/test-login');
-    console.log('      Body: { "userId": "google_test001" }');
-    console.log('   2. Or generate JWT tokens manually using the auth service');
+    console.log('   1. Generate JWT tokens manually using your auth service');
+    console.log('      Example userId: google_test001');
     console.log('\n   See backend/seed-data/README.md for detailed instructions.\n');
 
   } catch (error) {

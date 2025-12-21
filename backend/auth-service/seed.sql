@@ -347,9 +347,8 @@ ON CONFLICT (id) DO NOTHING;
 -- - 20 matches showing various relationship stages
 -- - 35+ messages across multiple conversations
 --
--- To use these test accounts, you'll need to:
--- 1. Generate JWT tokens for these user IDs using your auth service
--- 2. Or create a test login endpoint that accepts test user IDs
+-- To use these test accounts, generate JWT tokens for these user IDs using your auth service.
+-- See backend/seed-data/README.md for examples.
 --
 -- Clean up test data:
 -- DELETE FROM messages WHERE match_id LIKE 'test_%';
