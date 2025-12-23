@@ -1,152 +1,35 @@
-import rateLimit from 'express-rate-limit';
-import logger from '../utils/logger';
+/**
+ * Chat Service Rate Limiter
+ * Re-exports shared rate limiters + service-specific limiters
+ */
 
-// Note: Using memory store for rate limiting
-// For production with multiple instances, configure Redis via REDIS_URL
-// and install rate-limit-redis package
-if (process.env.REDIS_URL) {
-  logger.warn('REDIS_URL is set but Redis integration is disabled. Using memory store for rate limiting.');
-  logger.warn('To enable Redis: npm install rate-limit-redis redis and update rate-limiter.ts');
-} else {
-  logger.info('Using memory store for rate limiting (sufficient for single-instance deployment)');
-}
+import { createRateLimiter } from '@vlvt/shared';
 
-// General API rate limiter (100 requests per 15 minutes per IP)
-export const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many requests from this IP, please try again later',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: (req, res) => {
-    logger.warn('Rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'general'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many requests from this IP, please try again later'
-    });
-  }
-});
+// Re-export shared limiters
+export {
+  createRateLimiter,
+  generalLimiter,
+  strictLimiter,
+  authLimiter,
+  messageLimiter,
+  type RateLimiterOptions,
+} from '@vlvt/shared';
 
-// Authentication rate limiter (10 requests per 15 minutes per IP)
-export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Auth rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'auth'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many authentication attempts, please try again later'
-    });
-  }
-});
-
-// Token verification rate limiter (100 requests per 15 minutes per IP)
-export const verifyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+// Chat-service specific limiters
+export const verifyLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: 'Too many verification requests, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Verify rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'verify'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many verification requests, please try again later'
-    });
-  }
 });
 
-// Strict rate limiter for sensitive operations (5 requests per 15 minutes per IP)
-export const strictLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  message: 'Too many requests for this sensitive operation, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Strict rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'strict'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many requests for this sensitive operation, please try again later'
-    });
-  }
-});
-
-// Match creation rate limiter (15 match attempts per 15 minutes per IP)
-export const matchLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+export const matchLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
   max: 15,
   message: 'Too many match attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Match rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'match'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many match attempts, please try again later'
-    });
-  }
 });
 
-// Message sending rate limiter (100 messages per hour per IP)
-export const messageLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 100,
-  message: 'Too many messages sent, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Message rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'message'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many messages sent, please try again later'
-    });
-  }
-});
-
-// Report submission rate limiter (10 reports per day per IP)
-export const reportLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+export const reportLimiter = createRateLimiter({
+  windowMs: 24 * 60 * 60 * 1000,
   max: 10,
   message: 'Too many reports submitted, please try again tomorrow',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Report rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      limiter: 'report'
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many reports submitted, please try again tomorrow'
-    });
-  }
 });

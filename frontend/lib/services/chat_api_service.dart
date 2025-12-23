@@ -1,33 +1,22 @@
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config/app_config.dart';
 import '../models/match.dart';
 import '../models/message.dart';
-import 'auth_service.dart';
 import 'analytics_service.dart';
+import 'base_api_service.dart';
 
-class ChatApiService extends ChangeNotifier {
-  final AuthService _authService;
+class ChatApiService extends BaseApiService {
+  ChatApiService(super.authService);
 
-  ChatApiService(this._authService);
-
+  @override
   String get baseUrl => AppConfig.chatServiceUrl;
-
-  Map<String, String> _getAuthHeaders() {
-    final token = _authService.token;
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
 
   Future<List<Match>> getMatches(String userId) async {
     try {
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await http.get(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/matches/$encodedUserId'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -50,9 +39,8 @@ class ChatApiService extends ChangeNotifier {
   Future<List<Message>> getMessages(String matchId) async {
     try {
       final encodedMatchId = Uri.encodeComponent(matchId);
-      final response = await http.get(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/messages/$encodedMatchId'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -74,9 +62,8 @@ class ChatApiService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> createMatch(String userId1, String userId2) async {
     try {
-      final response = await http.post(
+      final response = await authenticatedPost(
         Uri.parse('$baseUrl/matches'),
-        headers: _getAuthHeaders(),
         body: json.encode({
           'userId1': userId1,
           'userId2': userId2,
@@ -104,9 +91,8 @@ class ChatApiService extends ChangeNotifier {
 
   Future<Message> sendMessage(String matchId, String senderId, String text) async {
     try {
-      final response = await http.post(
+      final response = await authenticatedPost(
         Uri.parse('$baseUrl/messages'),
-        headers: _getAuthHeaders(),
         body: json.encode({
           'matchId': matchId,
           'senderId': senderId,
@@ -137,9 +123,8 @@ class ChatApiService extends ChangeNotifier {
   Future<void> unmatch(String matchId) async {
     try {
       final encodedMatchId = Uri.encodeComponent(matchId);
-      final response = await http.delete(
+      final response = await authenticatedDelete(
         Uri.parse('$baseUrl/matches/$encodedMatchId'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -209,9 +194,8 @@ class ChatApiService extends ChangeNotifier {
   Future<Map<String, int>> getUnreadCounts(String userId) async {
     try {
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await http.get(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/matches/$encodedUserId/unread-counts'),
-        headers: _getAuthHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -235,9 +219,8 @@ class ChatApiService extends ChangeNotifier {
   Future<void> markMessagesAsRead(String matchId, String userId) async {
     try {
       final encodedMatchId = Uri.encodeComponent(matchId);
-      final response = await http.put(
+      final response = await authenticatedPut(
         Uri.parse('$baseUrl/messages/$encodedMatchId/mark-read'),
-        headers: _getAuthHeaders(),
         body: json.encode({
           'userId': userId,
         }),

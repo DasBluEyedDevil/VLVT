@@ -1,0 +1,32 @@
+{
+  "name": "@vlvt/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and middleware for VLVT microservices",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "winston": "^3.8.2",
+    "express-rate-limit": "^7.1.5",
+    "firebase-admin": "^12.0.0",
+    "pg": "^8.11.3",
+    "@sentry/node": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/pg": "^8.10.2",
+    "typescript": "^5.0.4",
+    "rimraf": "^5.0.0"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0",
+    "pg": "^8.0.0"
+  }
+}

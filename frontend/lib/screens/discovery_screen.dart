@@ -8,14 +8,13 @@ import '../services/chat_api_service.dart';
 import '../services/subscription_service.dart';
 import '../services/discovery_preferences_service.dart';
 import '../services/analytics_service.dart';
-import '../services/location_service.dart';
+import '../widgets/discovery/discovery_widgets.dart';
 import '../widgets/premium_gate_dialog.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/swipe_tutorial_overlay.dart';
 import '../widgets/match_overlay.dart';
 import '../widgets/vlvt_loader.dart';
 import '../widgets/vlvt_button.dart';
-import '../widgets/verified_badge.dart';
 import '../models/profile.dart';
 import '../models/match.dart';
 import '../theme/vlvt_colors.dart';
@@ -724,261 +723,22 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
     });
   }
 
-  Widget _buildSwipeHint() {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: const Duration(milliseconds: 1000),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: child,
-        );
-      },
-      onEnd: () {
-        // Repeat animation
-        if (mounted) {
-          setState(() {});
-        }
-      },
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.arrow_back,
-            color: VlvtColors.crimson.withValues(alpha: 0.6),
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Swipe to interact',
-            style: TextStyle(
-              fontSize: 14,
-              color: VlvtColors.textSecondary.withValues(alpha: 0.6),
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Montserrat',
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.arrow_forward,
-            color: VlvtColors.success.withValues(alpha: 0.6),
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileCardContent(Profile profile) {
-    return Card(
-      elevation: 8,
-      color: VlvtColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: VlvtColors.gold.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              VlvtColors.primary.withValues(alpha: 0.4),
-              VlvtColors.surface,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Photo carousel or default icon
-                if (profile.photos != null && profile.photos!.isNotEmpty) ...[
-                  Builder(
-                    builder: (context) {
-                      _initPhotoController(profile.photos!.length);
-                      return Column(
-                        children: [
-                          SizedBox(
-                            height: 300,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: PageView.builder(
-                                controller: _photoPageController,
-                                onPageChanged: (index) {
-                                  // Subtle haptic for photo scroll
-                                  HapticFeedback.selectionClick();
-                                  setState(() {
-                                    _currentPhotoIndex = index;
-                                  });
-                                },
-                                itemCount: profile.photos!.length,
-                                itemBuilder: (context, index) {
-                                  final photoUrl = profile.photos![index];
-                                  final profileService = context.read<ProfileApiService>();
-                                  return Hero(
-                                    tag: 'discovery_${profile.userId}', // Unique tag for discovery screen
-                                    child: CachedNetworkImage(
-                                      imageUrl: photoUrl.startsWith('http')
-                                          ? photoUrl
-                                          : '${profileService.baseUrl}$photoUrl',
-                                      fit: BoxFit.cover,
-                                      alignment: _getParallaxAlignment(), // Parallax effect on drag
-                                      memCacheWidth: 800, // Optimize memory: 400px * 2x DPR
-                                      placeholder: (context, url) => Container(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        child: const Icon(
-                                          Icons.broken_image,
-                                          size: 80,
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          if (profile.photos!.length > 1) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(
-                                profile.photos!.length,
-                                (index) => Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _currentPhotoIndex == index
-                                        ? Colors.white
-                                        : Colors.white.withValues(alpha: 0.4),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                ] else
-                  const Icon(
-                    Icons.person,
-                    size: 120,
-                    color: Colors.white,
-                  ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${profile.name ?? 'Anonymous'}, ${profile.age ?? '?'}',
-                      style: VlvtTextStyles.displayMedium.copyWith(
-                        color: VlvtColors.textPrimary,
-                      ),
-                    ),
-                    if (profile.isVerified) ...[
-                      const SizedBox(width: 8),
-                      const VerifiedIcon(size: 24),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  profile.bio ?? 'No bio available',
-                  textAlign: TextAlign.center,
-                  style: VlvtTextStyles.bodyLarge.copyWith(
-                    color: VlvtColors.textSecondary,
-                  ),
-                ),
-                if (profile.interests != null && profile.interests!.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Interests',
-                    style: VlvtTextStyles.h3.copyWith(
-                      color: VlvtColors.gold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: profile.interests!.map((interest) {
-                      return Chip(
-                        label: Text(interest),
-                        backgroundColor: VlvtColors.gold.withValues(alpha: 0.15),
-                        labelStyle: VlvtTextStyles.labelSmall.copyWith(
-                          color: VlvtColors.gold,
-                        ),
-                        side: BorderSide(
-                          color: VlvtColors.gold.withValues(alpha: 0.3),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-                if (_isExpanded) ...[
-                  const SizedBox(height: 24),
-                  Divider(color: VlvtColors.gold.withValues(alpha: 0.3)),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.info_outline, color: VlvtColors.textSecondary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'More Info',
-                        style: VlvtTextStyles.labelMedium.copyWith(
-                          color: VlvtColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    profile.distance != null
-                        ? 'Distance: ${LocationService.formatDistance(profile.distance! * 1000)}' // Convert km to meters
-                        : 'Distance: Not available',
-                    style: VlvtTextStyles.bodyMedium.copyWith(color: VlvtColors.textSecondary),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap card to collapse',
-                    style: VlvtTextStyles.bodySmall.copyWith(color: VlvtColors.textMuted),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildProfileCard(Profile profile) {
     return ScaleTransition(
       scale: _cardAnimation.drive(Tween(begin: 1.0, end: 1.02)),
-      child: _buildProfileCardContent(profile),
+      child: DiscoveryProfileCard(
+        profile: profile,
+        currentPhotoIndex: _currentPhotoIndex,
+        photoPageController: _photoPageController,
+        isExpanded: _isExpanded,
+        parallaxAlignment: _getParallaxAlignment(),
+        onPhotoChanged: (index) {
+          setState(() {
+            _currentPhotoIndex = index;
+          });
+        },
+        onInitPhotoController: () => _initPhotoController(profile.photos?.length ?? 0),
+      ),
     );
   }
 
@@ -1178,88 +938,19 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
             Column(
               children: [
                 // P2: Trust layer - "Who Liked You" Banner
-                if (_receivedLikesCount > 0)
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MatchesScreen(
-                            initialFilter: MatchFilterType.likedYou,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            VlvtColors.gold.withValues(alpha: 0.2),
-                            VlvtColors.gold.withValues(alpha: 0.1),
-                          ],
-                        ),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: VlvtColors.gold.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
+                WhoLikedYouBanner(
+                  likesCount: _receivedLikesCount,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MatchesScreen(
+                          initialFilter: MatchFilterType.likedYou,
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: VlvtColors.gold,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '$_receivedLikesCount',
-                              style: TextStyle(
-                                color: VlvtColors.textOnGold,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Montserrat',
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$_receivedLikesCount ${_receivedLikesCount == 1 ? 'person' : 'people'} liked you',
-                                  style: TextStyle(
-                                    color: VlvtColors.textPrimary,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  "See who's already interested",
-                                  style: TextStyle(
-                                    color: VlvtColors.textSecondary,
-                                    fontFamily: 'Montserrat',
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            color: VlvtColors.gold,
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
 
                 // Profile Counter Warning
                 if (_remainingProfiles > 0 && _remainingProfiles <= 5)
@@ -1422,71 +1113,20 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> with TickerProviderSt
                 ),
 
                 // Action Buttons - Made less prominent to encourage swiping
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Pass button - smaller and semi-transparent
-                      Opacity(
-                        opacity: 0.7,
-                        child: FloatingActionButton(
-                          heroTag: 'pass',
-                          mini: true,
-                          onPressed: () {
-                            final subService = context.read<SubscriptionService>();
-                            if (!subService.hasPremiumAccess) {
-                              HapticFeedback.heavyImpact();
-                              PremiumGateDialog.showSwipingRequired(context);
-                              return;
-                            }
-                            HapticFeedback.lightImpact();
-                            _onPass();
-                          },
-                          backgroundColor: VlvtColors.crimson,
-                          child: const Icon(Icons.close, size: 24, color: Colors.white),
-                        ),
-                      ),
-                      if (_showUndoButton)
-                        FloatingActionButton(
-                          heroTag: 'undo',
-                          mini: true,
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            _onUndo();
-                          },
-                          backgroundColor: VlvtColors.primary,
-                          child: const Icon(Icons.undo, size: 20, color: Colors.white),
-                        ),
-                      // Like button - smaller and semi-transparent
-                      Opacity(
-                        opacity: 0.7,
-                        child: FloatingActionButton(
-                          heroTag: 'like',
-                          mini: true,
-                          onPressed: () {
-                            final subService = context.read<SubscriptionService>();
-                            if (!subService.hasPremiumAccess) {
-                              HapticFeedback.heavyImpact();
-                              PremiumGateDialog.showSwipingRequired(context);
-                              return;
-                            }
-                            HapticFeedback.mediumImpact();
-                            _onLike();
-                          },
-                          backgroundColor: VlvtColors.success,
-                          child: const Icon(Icons.favorite, size: 24, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
+                DiscoveryActionButtons(
+                  showUndoButton: _showUndoButton,
+                  hasPremiumAccess: subscriptionService.hasPremiumAccess,
+                  onPass: _onPass,
+                  onLike: _onLike,
+                  onUndo: _onUndo,
+                  onPremiumRequired: () => PremiumGateDialog.showSwipingRequired(context),
                 ),
 
                 // Swipe hint for first-time users
                 if (!_isDragging && !prefsService.hasSeenTutorial && !_showTutorial)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: _buildSwipeHint(),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8.0),
+                    child: SwipeHintIndicator(),
                   ),
               ],
             ),

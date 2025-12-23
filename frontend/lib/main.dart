@@ -3,18 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'providers/provider_tree.dart';
 import 'services/auth_service.dart';
-import 'services/subscription_service.dart';
-import 'services/profile_api_service.dart';
-import 'services/chat_api_service.dart';
 import 'services/socket_service.dart';
-import 'services/location_service.dart';
-import 'services/cache_service.dart';
-import 'services/safety_service.dart';
-import 'services/discovery_preferences_service.dart';
-import 'services/tickets_service.dart';
-import 'services/date_proposal_service.dart';
-import 'services/verification_service.dart';
 import 'services/analytics_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
@@ -130,46 +121,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: themeService),
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => SubscriptionService()),
-        ChangeNotifierProvider(create: (_) => CacheService()),
-        ChangeNotifierProvider(create: (_) => DiscoveryPreferencesService()),
-        ChangeNotifierProvider(create: (_) => MessageQueueService()..init()),
-        ChangeNotifierProxyProvider<AuthService, ProfileApiService>(
-          create: (context) => ProfileApiService(context.read<AuthService>()),
-          update: (context, auth, previous) => ProfileApiService(auth),
-        ),
-        ChangeNotifierProxyProvider<AuthService, ChatApiService>(
-          create: (context) => ChatApiService(context.read<AuthService>()),
-          update: (context, auth, previous) => ChatApiService(auth),
-        ),
-        ChangeNotifierProxyProvider<AuthService, SocketService>(
-          create: (context) => SocketService(context.read<AuthService>()),
-          update: (context, auth, previous) => previous ?? SocketService(auth),
-        ),
-        ChangeNotifierProxyProvider<ProfileApiService, LocationService>(
-          create: (context) => LocationService(context.read<ProfileApiService>()),
-          update: (context, profile, previous) => previous ?? LocationService(profile),
-        ),
-        ChangeNotifierProxyProvider<AuthService, SafetyService>(
-          create: (context) => SafetyService(context.read<AuthService>()),
-          update: (context, auth, previous) => SafetyService(auth),
-        ),
-        ChangeNotifierProxyProvider<AuthService, TicketsService>(
-          create: (context) => TicketsService(context.read<AuthService>()),
-          update: (context, auth, previous) => TicketsService(auth),
-        ),
-        ChangeNotifierProxyProvider<AuthService, DateProposalService>(
-          create: (context) => DateProposalService(context.read<AuthService>()),
-          update: (context, auth, previous) => DateProposalService(auth),
-        ),
-        ChangeNotifierProxyProvider<AuthService, VerificationService>(
-          create: (context) => VerificationService(context.read<AuthService>()),
-          update: (context, auth, previous) => VerificationService(auth),
-        ),
-      ],
+      providers: ProviderTree.all(themeService),
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {
           return MaterialApp(

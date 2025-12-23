@@ -5,98 +5,19 @@ import 'dart:convert';
 import 'package:http_parser/http_parser.dart';
 import '../config/app_config.dart';
 import '../models/profile.dart';
-import 'auth_service.dart';
 import 'analytics_service.dart';
+import 'base_api_service.dart';
 
-class ProfileApiService extends ChangeNotifier {
-  final AuthService _authService;
+class ProfileApiService extends BaseApiService {
+  ProfileApiService(super.authService);
 
-  ProfileApiService(this._authService);
-
+  @override
   String get baseUrl => AppConfig.profileServiceUrl;
-
-  Map<String, String> _getAuthHeaders() {
-    final token = _authService.token;
-    if (token == null) {
-      debugPrint('Warning: No auth token available for API request');
-      return {
-        'Content-Type': 'application/json',
-      };
-    }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-
-  /// Make a GET request with automatic 401 retry after token refresh
-  Future<http.Response> _authenticatedGet(Uri uri) async {
-    var response = await http.get(uri, headers: _getAuthHeaders());
-
-    if (response.statusCode == 401) {
-      debugPrint('Got 401, attempting token refresh...');
-      final refreshed = await _authService.refreshToken();
-      if (refreshed) {
-        debugPrint('Token refreshed, retrying request...');
-        response = await http.get(uri, headers: _getAuthHeaders());
-      }
-    }
-
-    return response;
-  }
-
-  /// Make a POST request with automatic 401 retry after token refresh
-  Future<http.Response> _authenticatedPost(Uri uri, {Object? body}) async {
-    var response = await http.post(uri, headers: _getAuthHeaders(), body: body);
-
-    if (response.statusCode == 401) {
-      debugPrint('Got 401, attempting token refresh...');
-      final refreshed = await _authService.refreshToken();
-      if (refreshed) {
-        debugPrint('Token refreshed, retrying request...');
-        response = await http.post(uri, headers: _getAuthHeaders(), body: body);
-      }
-    }
-
-    return response;
-  }
-
-  /// Make a PUT request with automatic 401 retry after token refresh
-  Future<http.Response> _authenticatedPut(Uri uri, {Object? body}) async {
-    var response = await http.put(uri, headers: _getAuthHeaders(), body: body);
-
-    if (response.statusCode == 401) {
-      debugPrint('Got 401, attempting token refresh...');
-      final refreshed = await _authService.refreshToken();
-      if (refreshed) {
-        debugPrint('Token refreshed, retrying request...');
-        response = await http.put(uri, headers: _getAuthHeaders(), body: body);
-      }
-    }
-
-    return response;
-  }
-
-  /// Make a DELETE request with automatic 401 retry after token refresh
-  Future<http.Response> _authenticatedDelete(Uri uri) async {
-    var response = await http.delete(uri, headers: _getAuthHeaders());
-
-    if (response.statusCode == 401) {
-      debugPrint('Got 401, attempting token refresh...');
-      final refreshed = await _authService.refreshToken();
-      if (refreshed) {
-        debugPrint('Token refreshed, retrying request...');
-        response = await http.delete(uri, headers: _getAuthHeaders());
-      }
-    }
-
-    return response;
-  }
 
   Future<Profile> getProfile(String userId) async {
     try {
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await _authenticatedGet(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/profile/$encodedUserId'),
       );
 
@@ -148,9 +69,9 @@ class ProfileApiService extends ChangeNotifier {
       );
 
       debugPrint('Discovery API: GET $uri');
-      debugPrint('Discovery API: Token present: ${_authService.token != null}');
+      debugPrint('Discovery API: Token present: ${authService.token != null}');
 
-      final response = await _authenticatedGet(uri);
+      final response = await authenticatedGet(uri);
 
       debugPrint('Discovery API: Response status: ${response.statusCode}');
       if (response.statusCode != 200) {
@@ -176,7 +97,7 @@ class ProfileApiService extends ChangeNotifier {
 
   Future<Profile> createProfile(Profile profile) async {
     try {
-      final response = await _authenticatedPost(
+      final response = await authenticatedPost(
         Uri.parse('$baseUrl/profile'),
         body: json.encode(profile.toJson()),
       );
@@ -224,7 +145,7 @@ class ProfileApiService extends ChangeNotifier {
   Future<Profile> updateProfile(Profile profile) async {
     try {
       final encodedUserId = Uri.encodeComponent(profile.userId);
-      final response = await _authenticatedPut(
+      final response = await authenticatedPut(
         Uri.parse('$baseUrl/profile/$encodedUserId'),
         body: json.encode(profile.toJson()),
       );
@@ -285,7 +206,7 @@ class ProfileApiService extends ChangeNotifier {
   /// Search for count of users matching criteria (for free users)
   Future<int> searchUserCount(Map<String, dynamic> criteria) async {
     try {
-      final response = await _authenticatedPost(
+      final response = await authenticatedPost(
         Uri.parse('$baseUrl/profiles/search/count'),
         body: json.encode(criteria),
       );
@@ -311,13 +232,13 @@ class ProfileApiService extends ChangeNotifier {
   /// Update user's location
   Future<bool> updateLocation(double latitude, double longitude) async {
     try {
-      final userId = _authService.userId;
+      final userId = authService.userId;
       if (userId == null) {
         throw Exception('User not authenticated');
       }
 
       final encodedUserId = Uri.encodeComponent(userId);
-      final response = await _authenticatedPut(
+      final response = await authenticatedPut(
         Uri.parse('$baseUrl/profile/$encodedUserId/location'),
         body: json.encode({
           'latitude': latitude,
@@ -354,7 +275,7 @@ class ProfileApiService extends ChangeNotifier {
       final request = http.MultipartRequest('POST', uri);
 
       // Add authorization header
-      final token = _authService.token;
+      final token = authService.token;
       request.headers['Authorization'] = 'Bearer $token';
 
       // Add file
@@ -395,7 +316,7 @@ class ProfileApiService extends ChangeNotifier {
   Future<void> deletePhoto(String photoId) async {
     try {
       final encodedPhotoId = Uri.encodeComponent(photoId);
-      final response = await _authenticatedDelete(
+      final response = await authenticatedDelete(
         Uri.parse('$baseUrl/profile/photos/$encodedPhotoId'),
       );
 
@@ -419,7 +340,7 @@ class ProfileApiService extends ChangeNotifier {
   /// Reorder photos in the user's profile
   Future<void> reorderPhotos(List<String> photoUrls) async {
     try {
-      final response = await _authenticatedPut(
+      final response = await authenticatedPut(
         Uri.parse('$baseUrl/profile/photos/reorder'),
         body: json.encode({'photos': photoUrls}),
       );
@@ -474,7 +395,7 @@ class ProfileApiService extends ChangeNotifier {
     required String action,
   }) async {
     try {
-      final response = await _authenticatedPost(
+      final response = await authenticatedPost(
         Uri.parse('$baseUrl/swipes'),
         body: json.encode({
           'targetUserId': targetUserId,
@@ -507,7 +428,7 @@ class ProfileApiService extends ChangeNotifier {
   /// Get users who have liked the current user
   Future<List<Map<String, dynamic>>> getReceivedLikes() async {
     try {
-      final response = await _authenticatedGet(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/swipes/received'),
       );
 
@@ -530,7 +451,7 @@ class ProfileApiService extends ChangeNotifier {
   /// Get users the current user has liked (sent likes)
   Future<List<Map<String, dynamic>>> getSentLikes() async {
     try {
-      final response = await _authenticatedGet(
+      final response = await authenticatedGet(
         Uri.parse('$baseUrl/swipes/sent'),
       );
 
@@ -558,7 +479,7 @@ class ProfileApiService extends ChangeNotifier {
   /// - message: String
   Future<Map<String, dynamic>> checkProfileCompletion() async {
     try {
-      final userId = _authService.userId;
+      final userId = authService.userId;
       if (userId == null) {
         throw Exception('User not authenticated');
       }
@@ -567,7 +488,7 @@ class ProfileApiService extends ChangeNotifier {
       final profile = await getProfile(userId);
 
       // Get ID verification status
-      final idVerificationResult = await _authService.getIdVerificationStatus();
+      final idVerificationResult = await authService.getIdVerificationStatus();
       final isIdVerified = idVerificationResult['verified'] == true;
 
       final missingFields = <String>[];
