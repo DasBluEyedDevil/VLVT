@@ -3,7 +3,7 @@
  * Re-exports shared rate limiters + service-specific limiters
  */
 
-import { createRateLimiter } from '@vlvt/shared';
+import { createRateLimiter } from '../shared';
 
 // Re-export shared limiters
 export {
@@ -15,7 +15,7 @@ export {
   discoveryLimiter,
   uploadLimiter,
   type RateLimiterOptions,
-} from '@vlvt/shared';
+} from '../shared';
 
 // Profile-service specific limiters
 export const verifyLimiter = createRateLimiter({

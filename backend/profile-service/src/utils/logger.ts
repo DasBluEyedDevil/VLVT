@@ -3,7 +3,7 @@
  * Creates a logger instance configured for profile-service
  */
 
-import { createLogger } from '@vlvt/shared';
+import { createLogger } from '../shared';
 
 const logger = createLogger({
   service: 'profile-service',

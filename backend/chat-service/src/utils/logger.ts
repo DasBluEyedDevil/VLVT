@@ -3,7 +3,7 @@
  * Creates a logger instance configured for chat-service
  */
 
-import { createLogger } from '@vlvt/shared';
+import { createLogger } from '../shared';
 
 const logger = createLogger({
   service: 'chat-service',

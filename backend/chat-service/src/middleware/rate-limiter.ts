@@ -3,7 +3,7 @@
  * Re-exports shared rate limiters + service-specific limiters
  */
 
-import { createRateLimiter } from '@vlvt/shared';
+import { createRateLimiter } from '../shared';
 
 // Re-export shared limiters
 export {
@@ -13,7 +13,7 @@ export {
   authLimiter,
   messageLimiter,
   type RateLimiterOptions,
-} from '@vlvt/shared';
+} from '../shared';
 
 // Chat-service specific limiters
 export const verifyLimiter = createRateLimiter({

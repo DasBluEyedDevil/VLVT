@@ -9,8 +9,8 @@ export {
   createAuthMiddleware,
   type AuthMiddlewareOptions,
   type JWTPayload,
-} from '@vlvt/shared';
+} from '../shared';
 
 // Default export for backwards compatibility
-import { authMiddleware } from '@vlvt/shared';
+import { authMiddleware } from '../shared';
 export default authMiddleware;

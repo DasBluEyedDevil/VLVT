@@ -3,11 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "predev": "cd ../shared && npm run build",
     "dev": "ts-node src/index.ts",
-    "build": "npm run build:shared && tsc",
-    "build:shared": "cd ../shared && npm run build",
-    "build:docker": "tsc",
+    "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -39,8 +36,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "uuid": "^10.0.0",
-    "winston": "^3.18.3",
-    "@vlvt/shared": "file:../shared"
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
