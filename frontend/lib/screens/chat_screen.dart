@@ -854,15 +854,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _buildMessagesList(String? currentUserId) {
     if (_messages == null || _messages!.isEmpty) {
       return Center(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.chat_bubble_outline, size: 80, color: VlvtColors.textMuted),
-        const SizedBox(height: 16),
+          child: SingleChildScrollView(
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.chat_bubble_outline, size: 64, color: VlvtColors.textMuted),
+        const SizedBox(height: 12),
         Text('No messages yet',
-            style: TextStyle(fontSize: 18, color: VlvtColors.textSecondary)),
-        const SizedBox(height: 8),
+            style: TextStyle(fontSize: 16, color: VlvtColors.textSecondary)),
+        const SizedBox(height: 4),
         Text('Say hi to ${_otherUserProfile?.name ?? 'your match'}!',
-            style: TextStyle(fontSize: 14, color: VlvtColors.textMuted)),
-      ]));
+            style: TextStyle(fontSize: 13, color: VlvtColors.textMuted)),
+      ])));
     }
 
     // Build items list: typing indicator (if any) + messages in REVERSE order
